@@ -15,13 +15,23 @@ from xml.sax.saxutils import escape
 APP_DIR = sys.argv[1] if len(sys.argv) > 1 else "app/Pocket Pal.app"
 OUT = sys.argv[2] if len(sys.argv) > 2 else "Pocket Pal Installer.pkg"
 IDENT = "com.herestudios.pocketpal"
-VERSION = "1.0"
+VERSION = "2.0"
 
 POSTINSTALL = r'''#!/bin/bash
 # Pocket Pal postinstall: runs as root after you click Install
 HERE="$(cd "$(dirname "$0")" && pwd)"
 DEST="/Applications/Pocket Pal.app"
-# close any running copy first (old versions ran through osascript)
+LABEL="com.herestudios.pocketpal"
+USER_NAME="$(/usr/bin/stat -f%Su /dev/console)"
+HAS_USER=0
+if [ -n "$USER_NAME" ] && [ "$USER_NAME" != "root" ]; then
+  HAS_USER=1
+  USER_ID="$(/usr/bin/id -u "$USER_NAME")"
+  HOME_DIR="$(/usr/bin/dscl . -read "/Users/$USER_NAME" NFSHomeDirectory 2>/dev/null | /usr/bin/awk '{print $2}')"
+  # stop the background agent first, so it doesn't restart the old app mid-install
+  /bin/launchctl bootout "gui/$USER_ID/$LABEL" 2>/dev/null
+fi
+# close any running copy (old versions ran through osascript)
 /usr/bin/pkill -f "Pocket Pal.app/Contents/Resources/main.js" 2>/dev/null
 /usr/bin/pkill -f "Pocket Pal.app/Contents/MacOS/PocketPal" 2>/dev/null
 sleep 1
@@ -30,15 +40,38 @@ rm -rf "$DEST"
 chmod -R a+rX "$DEST"
 chmod 755 "$DEST/Contents/MacOS/PocketPal"
 /usr/bin/xattr -dr com.apple.quarantine "$DEST" 2>/dev/null
-# tell Finder and the Dock the app exists
 /usr/bin/touch "$DEST"
-# open the app for the person who is logged in
-USER_NAME="$(/usr/bin/stat -f%Su /dev/console)"
-if [ -n "$USER_NAME" ] && [ "$USER_NAME" != "root" ]; then
+if [ "$HAS_USER" = "1" ] && [ -n "$HOME_DIR" ]; then
   # a fresh install uses the game inside the app; the app re-checks GitHub for anything newer
-  HOME_DIR="$(/usr/bin/dscl . -read "/Users/$USER_NAME" NFSHomeDirectory 2>/dev/null | /usr/bin/awk '{print $2}')"
-  [ -n "$HOME_DIR" ] && rm -rf "$HOME_DIR/Library/Application Support/PocketPal/game"
-  USER_ID="$(/usr/bin/id -u "$USER_NAME")"
+  rm -rf "$HOME_DIR/Library/Application Support/PocketPal/game"
+  # login agent: starts Pocket Pal in the menu bar at login and brings it back if it crashes
+  AGENTS="$HOME_DIR/Library/LaunchAgents"
+  PLIST="$AGENTS/$LABEL.plist"
+  mkdir -p "$AGENTS"
+  cat > "$PLIST" <<PLISTEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$DEST/Contents/MacOS/PocketPal</string>
+    <string>--background</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>LimitLoadToSessionType</key><string>Aqua</string>
+</dict>
+</plist>
+PLISTEOF
+  chown "$USER_NAME" "$AGENTS" "$PLIST"
+  chmod 644 "$PLIST"
+  /bin/launchctl bootstrap "gui/$USER_ID" "$PLIST" 2>/dev/null
+  sleep 2
+  # open the window for the person who is logged in (the running copy shows it)
   /bin/launchctl asuser "$USER_ID" /usr/bin/sudo -u "$USER_NAME" /usr/bin/open "$DEST" >/dev/null 2>&1 || true
 fi
 exit 0

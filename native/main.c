@@ -40,6 +40,9 @@ extern BOOL class_addMethod(Class cls, SEL name, IMP imp, const char *types);
 extern void *objc_getProtocol(const char *name);
 extern BOOL class_addProtocol(Class cls, void *protocol);
 extern int  snprintf(char *buf, unsigned long size, const char *fmt, ...);
+extern int  strcmp(const char *a, const char *b);
+extern char *strncpy(char *d, const char *s, unsigned long n);
+extern int  getpid(void);
 
 /* ---------- typed message helpers ----------
    On Apple Silicon every objc_msgSend call must be cast to the exact
@@ -61,8 +64,13 @@ static const char *rStr(id o)                      { return ((const char*(*)(id,
 static id str(const char *c) { return ((id(*)(id,SEL,const char*))objc_msgSend)(C("NSString"), S("stringWithUTF8String:"), c); }
 static id cat(id a, id b)    { return m1(a, "stringByAppendingString:", b); }
 static id dget(id dict, const char *key) { return m1(dict, "objectForKey:", str(key)); }
-static long dnum(id dict, const char *key) { id v = dget(dict, key); return v ? rL(v, "integerValue") : 0; }
 static BOOL isStr(id o) { return o && rB1(o, "isKindOfClass:", C("NSString")); }
+static double rD(id o, const char *s) { return ((double(*)(id,SEL))objc_msgSend)(o, S(s)); }
+static double dval(id d, const char *k, double def) { id v = dget(d, k); return (v && rB1(v, "isKindOfClass:", C("NSNumber"))) ? rD(v, "doubleValue") : def; }
+static id parseJSON(id text) {
+  if (!isStr(text)) return nil;
+  return ((id(*)(id,SEL,id,NSUInteger,id*))objc_msgSend)(C("NSJSONSerialization"), S("JSONObjectWithData:options:error:"), mL(text, "dataUsingEncoding:", 4), 4, 0);
+}
 
 /* ---------- app state ---------- */
 #define MAX_PETS 6
@@ -73,6 +81,9 @@ static id faces;                         // NSMutableDictionary: mood -> NSImage
 static id items[MAX_PETS];               // NSStatusItem per pet
 static id rows[MAX_PETS][R_COUNT];       // menu rows per pet
 static int petCount = -1;
+static id labels;                        // what kind each pet is ("Cat", "Froggo"...), sent by the game
+static BOOL backgroundLaunch, poweringOff;
+static id unCenter; static int unOK = -1; // notification permission: -1 unknown, 0 no, 1 yes
 static const char *ACTIONS[] = { "snack", "pet", "sleep" };
 
 static id menuItem(const char *title, const char *action, const char *key, id target, long tag) {
@@ -89,6 +100,7 @@ static id symbol(const char *name) {
 static void setImg(id item, const char *sym) { id i = symbol(sym); if (i) m1(item, "setImage:", i); }
 
 static void showWindow(void) {
+  mL(app, "setActivationPolicy:", 0);       // Dock icon while the window is open
   m1(win, "makeKeyAndOrderFront:", nil);
   mB(app, "activateIgnoringOtherApps:", YES);
 }
@@ -121,7 +133,6 @@ static void makePetItem(int i) {
   m1(menu, "addItem:", m0(C("NSMenuItem"), "separatorItem"));
   id open = menuItem("Open Pocket Pal", "menuAction:", "o", ctrl, base + 9); setImg(open, "macwindow");
   m1(menu, "addItem:", open);
-  m1(menu, "addItem:", menuItem("Quit Pocket Pal", "terminate:", "q", app, 0));
   m1(items[i], "setMenu:", menu);
 }
 static void setPetCount(int n) {
@@ -140,38 +151,115 @@ static void bar(char *out, int size, const char *label, long v) {
   snprintf(out, size, "%s  %s  %ld%%", label, b, v);
 }
 
-/* reads the game's title message and updates everything */
-static void tick(id self, SEL _cmd, id arg) {
-  id t = m0(web, "title");
-  if (!t || !isStr(t)) return;
-  if (lastTitle && rB1(t, "isEqualToString:", lastTitle)) return;
-  if (!rB1(t, "hasPrefix:", str("PP|"))) return;
-  if (lastTitle) m0(lastTitle, "release");
-  lastTitle = m0(t, "retain");
+/* ---------- PET SIMULATION (runs here too, so pets change even with the game closed) ----------
+   Same math as simulate() in the game. The game stays the boss of the save file;
+   we only work out where each pet is "right now" for the menu bar and notifications. */
+typedef struct { double happy, food, health; BOOL sleeping; } Stats;
+static double clampd(double v, double a, double b) { return v < a ? a : v > b ? b : v; }
+static BOOL isWord(id s, const char *w) { return isStr(s) && rB1(s, "isEqualToString:", str(w)); }
+static void simulate(Stats *p, double sec, double hunger, BOOL elder) {
+  double slow = p->sleeping ? .5 : 1;
+  p->food  -= sec * 0.0125 * hunger * slow;
+  p->happy -= sec * 0.0105 * slow;
+  double dh = 0;
+  if (p->food < 20)  dh -= 0.02;
+  if (p->happy < 20) dh -= 0.01;
+  if (p->food > 50 && p->happy > 40) dh += 0.008 * (elder ? .8 : 1);
+  if (p->sleeping) dh += 0.03;
+  p->health += sec * dh;
+  p->food = clampd(p->food, 0, 100); p->happy = clampd(p->happy, 0, 100); p->health = clampd(p->health, 5, 100);
+}
+static const char *moodOf(Stats s) {
+  if (s.health < 35) return "hurt";
+  if (s.food < 30)   return "hungry";
+  if (s.happy >= 65) return "happy";
+  if (s.happy >= 35) return "meh";
+  return "sad";
+}
+static const char *moodText(const char *m) {
+  if (!strcmp(m, "happy")) return "Happy";
+  if (!strcmp(m, "meh")) return "Meh";
+  if (!strcmp(m, "sad")) return "Sad";
+  if (!strcmp(m, "hungry")) return "Hungry";
+  if (!strcmp(m, "hurt")) return "Not feeling well";
+  return "Sleeping";
+}
 
-  id data = mL(mL(t, "substringFromIndex:", 3), "dataUsingEncoding:", 4);
-  id msg = ((id(*)(id,SEL,id,NSUInteger,id*))objc_msgSend)(C("NSJSONSerialization"), S("JSONObjectWithData:options:error:"), data, 0, 0);
-  if (!msg) return;
-
-  // save file
-  id save = dget(msg, "save");
-  if (isStr(save) && !(lastSave && rB1(save, "isEqualToString:", lastSave))) {
-    ((BOOL(*)(id,SEL,id,BOOL,NSUInteger,id*))objc_msgSend)(save, S("writeToFile:atomically:encoding:error:"), savePath, YES, 4, 0);
-    if (lastSave) m0(lastSave, "release");
-    lastSave = m0(save, "retain");
+/* ---------- NOTIFICATIONS ---------- */
+static void (^authDone)(BOOL, id) = ^(BOOL granted, id err) { unOK = granted ? 1 : 0; };
+static id quoteSafe(id s) {
+  s = m2(s, "stringByReplacingOccurrencesOfString:withString:", str("\\"), str(""));
+  return m2(s, "stringByReplacingOccurrencesOfString:withString:", str("\""), str("'"));
+}
+static void notify(id title, id body) {
+  if (unOK == 1 && unCenter) {
+    id content = m0(m0(C("UNMutableNotificationContent"), "alloc"), "init");
+    m1(content, "setTitle:", title); m1(content, "setBody:", body);
+    m1(content, "setSound:", m0(C("UNNotificationSound"), "defaultSound"));
+    id ident = m0(m0(C("NSUUID"), "UUID"), "UUIDString");
+    id req = ((id(*)(id,SEL,id,id,id))objc_msgSend)(C("UNNotificationRequest"), S("requestWithIdentifier:content:trigger:"), ident, content, nil);
+    m2(unCenter, "addNotificationRequest:withCompletionHandler:", req, nil);
+    return;
   }
+  // backup plan if macOS won't let this app post notifications itself
+  id script = cat(cat(cat(cat(str("display notification \""), quoteSafe(body)), str("\" with title \"")), quoteSafe(title)), str("\" sound name \"Glass\""));
+  id args[2] = { str("-e"), script };
+  id arr = ((id(*)(id,SEL,id*,NSUInteger))objc_msgSend)(C("NSArray"), S("arrayWithObjects:count:"), args, 2);
+  m2(C("NSTask"), "launchedTaskWithLaunchPath:arguments:", str("/usr/bin/osascript"), arr);
+}
+// show notifications even while Pocket Pal is in front
+struct Block { void *isa; int flags; int reserved; void (*invoke)(void *, ...); };
+static void willPresent(id self, SEL _cmd, id center, id note, void *handler) {
+  struct Block *b = handler; ((void(*)(void *, NSUInteger))b->invoke)(b, 2 | 8 | 16);   // sound, list, banner
+}
+// clicking a notification opens the game
+static void didClick(id self, SEL _cmd, id center, id response, void *handler) {
+  showWindow();
+  struct Block *b = handler; ((void(*)(void *))b->invoke)(b);
+}
 
-  // one menu bar face per pet
-  id pets = dget(msg, "pets");
+/* One alert per problem: hungry (food < 30), sad (happiness < 35), sick (health < 35).
+   It goes off again after 3 hours, or after the pet got better and then bad again. */
+static double alertAt[MAX_PETS][3];
+static BOOL alertOn[MAX_PETS][3];
+static char alertName[MAX_PETS][64];
+static void checkAlerts(int i, const char *name, Stats s, double now) {
+  if (strcmp(alertName[i], name)) {                 // a different pet is in this slot now
+    strncpy(alertName[i], name, 63); alertName[i][63] = 0;
+    for (int k = 0; k < 3; k++) { alertOn[i][k] = NO; alertAt[i][k] = 0; }
+  }
+  // no need to buzz you while you're looking right at the game
+  BOOL looking = ((BOOL(*)(id,SEL))objc_msgSend)(win, S("isVisible")) && ((BOOL(*)(id,SEL))objc_msgSend)(app, S("isActive"));
+  double vals[3] = { s.food, s.happy, s.health }, lim[3] = { 30, 35, 35 };
+  for (int k = 0; k < 3; k++) {
+    if (k == 1 && s.sleeping) continue;              // sleeping pets aren't lonely
+    if (vals[k] < lim[k]) {
+      BOOL due = !alertOn[i][k] || now - alertAt[i][k] > 3 * 3600 * 1000.0;
+      if (due && !looking) {
+        char t[160], b[220]; int v = (int)(vals[k] + .5);
+        if (k == 0) { snprintf(t, sizeof t, "%s is hungry! \xF0\x9F\x8D\x96", name);
+                      snprintf(b, sizeof b, "Food is down to %d%%. Give %s a snack from the menu bar or the app.", v, name); }
+        if (k == 1) { snprintf(t, sizeof t, "%s is feeling sad \xF0\x9F\x98\xA2", name);
+                      snprintf(b, sizeof b, "Happiness is at %d%%. Pet %s or play Star Catch together.", v, name); }
+        if (k == 2) { snprintf(t, sizeof t, "%s is sick! \xF0\x9F\x92\x8A", name);
+                      snprintf(b, sizeof b, "Health is at %d%%. Open Pocket Pal and give %s some medicine.", v, name); }
+        notify(str(t), str(b));
+      }
+      if (due) alertAt[i][k] = now;
+      alertOn[i][k] = YES;
+    } else if (vals[k] > lim[k] + 10) alertOn[i][k] = NO;
+  }
+}
+
+/* works out every pet's stats right now and updates the menu bar */
+static void refreshBar(void) {
+  id save = parseJSON(lastSave);
+  id pets = (save && rB1(save, "isKindOfClass:", C("NSDictionary"))) ? dget(save, "pets") : nil;
+  if (pets && !rB1(pets, "isKindOfClass:", C("NSArray"))) pets = nil;
   long n = pets ? rL(pets, "count") : 0;
   setPetCount((int)n);
-  // the "Faces in the Mac menu bar" setting
-  id mb = dget(msg, "menubar");
-  BOOL showBar = mb ? rL(mb, "integerValue") != 0 : YES;
-  for (int i = 0; i < MAX_PETS; i++) if (items[i]) mB(items[i], "setVisible:", showBar);
   if (n == 0) {
-    id img = dget(faces, "none") ? m1(faces, "objectForKey:", str("none")) : nil;
-    m1(m0(items[0], "button"), "setImage:", img);
+    m1(m0(items[0], "button"), "setImage:", m1(faces, "objectForKey:", str("none")));
     m1(m0(items[0], "button"), "setToolTip:", str("Pocket Pal"));
     m1(rows[0][R_TITLE], "setTitle:", str("Pocket Pal"));
     m1(rows[0][R_MOOD], "setTitle:", str("No pets yet. Open the app and hit Play!"));
@@ -181,30 +269,69 @@ static void tick(id self, SEL _cmd, id arg) {
     for (int r = R_SNACK; r <= R_SLEEP; r++) mB(rows[0][r], "setEnabled:", NO);
     return;
   }
+  double now = rD(m0(C("NSDate"), "date"), "timeIntervalSince1970") * 1000.0;
   for (long i = 0; i < n && i < MAX_PETS; i++) {
     id p = mL(pets, "objectAtIndex:", i);
-    id face = dget(p, "face");                // happy / meh / sad / hungry / hurt / sleep
-    id img = m1(faces, "objectForKey:", face);
+    id sl = dget(p, "sleeping");
+    Stats st = { dval(p, "happy", 80), dval(p, "food", 80), dval(p, "health", 100),
+                 (sl && rB1(sl, "isKindOfClass:", C("NSNumber"))) ? ((BOOL(*)(id,SEL))objc_msgSend)(sl, S("boolValue")) : NO };
+    id age = dget(p, "age");
+    double hunger = isWord(age, "baby") ? 1.3 : isWord(age, "kid") ? 1.15 : isWord(age, "teen") ? 1.05 : isWord(age, "elder") ? .85 : 1;
+    // time since the game last saved this pet (up to a week)
+    double el = clampd((now - dval(p, "last", now)) / 1000.0, 0, 7 * 86400);
+    while (el > 0) { double step = el > 60 ? 60 : el; simulate(&st, step, hunger, isWord(age, "elder")); el -= step; }
+
+    const char *mood = st.sleeping ? "sleep" : moodOf(st);
+    id nm = dget(p, "name");
+    const char *name = isStr(nm) ? rStr(nm) : "Your pet";
+    id lab = (labels && i < rL(labels, "count")) ? mL(labels, "objectAtIndex:", i) : nil;
+    const char *kind = isStr(lab) ? rStr(lab) : "pet";
+    id img = m1(faces, "objectForKey:", str(mood));
     id btn = m0(items[i], "button");
     if (img) { m1(btn, "setImage:", img); m1(rows[i][R_TITLE], "setImage:", img); }
-    BOOL sleeping = dnum(p, "sleeping") != 0;
-    char line[160];
-    snprintf(line, sizeof line, "%s the %s", rStr(dget(p, "name")), rStr(dget(p, "species")));
-    m1(rows[i][R_TITLE], "setTitle:", str(line));
-    snprintf(line, sizeof line, "Feeling: %s", rStr(dget(p, "moodText")));
-    m1(rows[i][R_MOOD], "setTitle:", str(line));
-    snprintf(line, sizeof line, "%s: %s", rStr(dget(p, "name")), rStr(dget(p, "moodText")));
-    m1(btn, "setToolTip:", str(line));
-    bar(line, sizeof line, "Happiness", dnum(p, "happy"));  m1(rows[i][R_HAPPY], "setTitle:", str(line));
-    bar(line, sizeof line, "Food        ", dnum(p, "food"));  m1(rows[i][R_FOOD], "setTitle:", str(line));
-    bar(line, sizeof line, "Health      ", dnum(p, "health")); m1(rows[i][R_HEALTH], "setTitle:", str(line));
-    mB(rows[i][R_SNACK], "setEnabled:", !sleeping);
-    mB(rows[i][R_PET], "setEnabled:", !sleeping);
+    char line[200];
+    snprintf(line, sizeof line, "%s the %s", name, kind);           m1(rows[i][R_TITLE], "setTitle:", str(line));
+    snprintf(line, sizeof line, "Feeling: %s", moodText(mood));     m1(rows[i][R_MOOD], "setTitle:", str(line));
+    snprintf(line, sizeof line, "%s: %s", name, moodText(mood));    m1(btn, "setToolTip:", str(line));
+    bar(line, sizeof line, "Happiness", (long)(st.happy + .5));      m1(rows[i][R_HAPPY], "setTitle:", str(line));
+    bar(line, sizeof line, "Food        ", (long)(st.food + .5));    m1(rows[i][R_FOOD], "setTitle:", str(line));
+    bar(line, sizeof line, "Health      ", (long)(st.health + .5));  m1(rows[i][R_HEALTH], "setTitle:", str(line));
+    mB(rows[i][R_SNACK], "setEnabled:", !st.sleeping);
+    mB(rows[i][R_PET], "setEnabled:", !st.sleeping);
     mB(rows[i][R_SLEEP], "setEnabled:", YES);
-    m1(rows[i][R_SLEEP], "setTitle:", str(sleeping ? "Wake Up" : "Put to Sleep"));
-    setImg(rows[i][R_SLEEP], sleeping ? "sun.max" : "moon.zzz");
+    m1(rows[i][R_SLEEP], "setTitle:", str(st.sleeping ? "Wake Up" : "Put to Sleep"));
+    setImg(rows[i][R_SLEEP], st.sleeping ? "sun.max" : "moon.zzz");
+    checkAlerts((int)i, name, st, now);
   }
 }
+
+/* reads the game's title message: saves the file and remembers each pet's kind */
+static void tick(id self, SEL _cmd, id arg) {
+  id t = m0(web, "title");
+  if (!t || !isStr(t)) return;
+  if (lastTitle && rB1(t, "isEqualToString:", lastTitle)) return;
+  if (!rB1(t, "hasPrefix:", str("PP|"))) return;
+  if (lastTitle) m0(lastTitle, "release");
+  lastTitle = m0(t, "retain");
+  id msg = parseJSON(mL(t, "substringFromIndex:", 3));
+  if (!msg) return;
+  id save = dget(msg, "save");
+  if (isStr(save) && !(lastSave && rB1(save, "isEqualToString:", lastSave))) {
+    ((BOOL(*)(id,SEL,id,BOOL,NSUInteger,id*))objc_msgSend)(save, S("writeToFile:atomically:encoding:error:"), savePath, YES, 4, 0);
+    if (lastSave) m0(lastSave, "release");
+    lastSave = m0(save, "retain");
+  }
+  id pets = dget(msg, "pets");
+  id kinds = m0(m0(C("NSMutableArray"), "alloc"), "init");
+  for (long i = 0; pets && i < rL(pets, "count"); i++) {
+    id sp = dget(mL(pets, "objectAtIndex:", i), "species");
+    m1(kinds, "addObject:", isStr(sp) ? sp : str("pet"));
+  }
+  if (labels) m0(labels, "release");
+  labels = kinds;
+  refreshBar();
+}
+static void barTimer(id self, SEL _cmd, id arg) { refreshBar(); }
 
 /* a menu bar menu row was clicked: tag = petIndex * 10 + action */
 static void menuAction(id self, SEL _cmd, id sender) {
@@ -327,7 +454,6 @@ static void onMessage(id self, SEL _cmd, id ucc, id message) {
 }
 
 /* ---------- <input type=file> in the game opens a normal Mac file picker ---------- */
-struct Block { void *isa; int flags; int reserved; void (*invoke)(void *, ...); };
 static void openPanel(id self, SEL _cmd, id webView, id params, id frame, void *handler) {
   id panel = m0(C("NSOpenPanel"), "openPanel");
   mB(panel, "setCanChooseFiles:", YES);
@@ -340,6 +466,17 @@ static void openPanel(id self, SEL _cmd, id webView, id params, id frame, void *
 }
 
 static BOOL keepRunning(id self, SEL _cmd, id sender) { return NO; }       // closing the window keeps the menu bar faces
+/* Cmd+Q just closes the window: your pets keep living in the menu bar.
+   Only logging out or shutting down really quits. */
+static NSUInteger shouldQuit(id self, SEL _cmd, id sender) {
+  if (poweringOff) return 1;
+  m1(win, "orderOut:", nil);
+  mL(app, "setActivationPolicy:", 1);              // back to menu-bar-only, no Dock icon
+  return 0;
+}
+static void powerOff(id self, SEL _cmd, id note) { poweringOff = YES; }
+static void windowClosed(id self, SEL _cmd, id note) { mL(app, "setActivationPolicy:", 1); }
+static void showFromOther(id self, SEL _cmd, id note) { showWindow(); }
 static BOOL reopen(id self, SEL _cmd, id sender, BOOL visible) { showWindow(); return YES; }
 static void willQuit(id self, SEL _cmd, id note) { lastTitle = nil; tick(self, _cmd, nil); }
 
@@ -351,14 +488,36 @@ static id menuWith(const char *title, id *list, int n) {
   return holder;
 }
 
-int main(void) {
+int main(int argc, char **argv) {
   m0(m0(C("NSAutoreleasePool"), "alloc"), "init");
+  // --background = started at login by the Pocket Pal agent: menu bar only, no window
+  backgroundLaunch = argc > 1 && !strcmp(argv[1], "--background");
+
+  // only one Pocket Pal at a time: if one is already running, ask it to show its window and stop
+  id running = m1(C("NSRunningApplication"), "runningApplicationsWithBundleIdentifier:", str("com.herestudios.pocketpal"));
+  for (long i = 0; running && i < rL(running, "count"); i++) {
+    int pid = ((int(*)(id,SEL))objc_msgSend)(mL(running, "objectAtIndex:", i), S("processIdentifier"));
+    if (pid != getpid()) {
+      if (!backgroundLaunch)
+        ((void(*)(id,SEL,id,id,id,BOOL))objc_msgSend)(m0(C("NSDistributedNotificationCenter"), "defaultCenter"),
+          S("postNotificationName:object:userInfo:deliverImmediately:"), str("com.herestudios.pocketpal.show"), nil, nil, YES);
+      return 0;
+    }
+  }
+
   app = m0(C("NSApplication"), "sharedApplication");
-  mL(app, "setActivationPolicy:", 0);               // regular app with Dock icon
+  mL(app, "setActivationPolicy:", backgroundLaunch ? 1 : 0);   // 1 = menu bar only, 0 = normal app
 
   // controller class: timer, menu actions, app delegate
   Class cls = objc_allocateClassPair((Class)C("NSObject"), "PocketPalController", 0);
   class_addMethod(cls, S("tick:"), (IMP)tick, "v@:@");
+  class_addMethod(cls, S("barTimer:"), (IMP)barTimer, "v@:@");
+  class_addMethod(cls, S("applicationShouldTerminate:"), (IMP)shouldQuit, "Q@:@");
+  class_addMethod(cls, S("powerOff:"), (IMP)powerOff, "v@:@");
+  class_addMethod(cls, S("windowWillClose:"), (IMP)windowClosed, "v@:@");
+  class_addMethod(cls, S("showFromOther:"), (IMP)showFromOther, "v@:@");
+  class_addMethod(cls, S("userNotificationCenter:willPresentNotification:withCompletionHandler:"), (IMP)willPresent, "v@:@@@?");
+  class_addMethod(cls, S("userNotificationCenter:didReceiveNotificationResponse:withCompletionHandler:"), (IMP)didClick, "v@:@@@?");
   class_addMethod(cls, S("menuAction:"), (IMP)menuAction, "v@:@");
   class_addMethod(cls, S("applicationShouldTerminateAfterLastWindowClosed:"), (IMP)keepRunning, "c@:@");
   class_addMethod(cls, S("applicationShouldHandleReopen:hasVisibleWindows:"), (IMP)reopen, "c@:@c");
@@ -367,9 +526,24 @@ int main(void) {
   class_addMethod(cls, S("webView:runOpenPanelWithParameters:initiatedByFrame:completionHandler:"), (IMP)openPanel, "v@:@@@@?");
   void *proto = objc_getProtocol("WKScriptMessageHandler"); if (proto) class_addProtocol(cls, proto);
   proto = objc_getProtocol("WKUIDelegate"); if (proto) class_addProtocol(cls, proto);
+  proto = objc_getProtocol("UNUserNotificationCenterDelegate"); if (proto) class_addProtocol(cls, proto);
+  proto = objc_getProtocol("NSWindowDelegate"); if (proto) class_addProtocol(cls, proto);
   objc_registerClassPair(cls);
   ctrl = m0(m0((id)cls, "alloc"), "init");
   m1(app, "setDelegate:", ctrl);
+
+  // hear about shutdown/logout, and about a second copy asking us to show the window
+  ((void(*)(id,SEL,id,SEL,id,id))objc_msgSend)(m0(m0(C("NSWorkspace"), "sharedWorkspace"), "notificationCenter"),
+      S("addObserver:selector:name:object:"), ctrl, S("powerOff:"), str("NSWorkspaceWillPowerOffNotification"), nil);
+  ((void(*)(id,SEL,id,SEL,id,id))objc_msgSend)(m0(C("NSDistributedNotificationCenter"), "defaultCenter"),
+      S("addObserver:selector:name:object:"), ctrl, S("showFromOther:"), str("com.herestudios.pocketpal.show"), nil);
+
+  // notifications (macOS asks permission the first time)
+  if (C("UNUserNotificationCenter")) {
+    unCenter = m0(m0(C("UNUserNotificationCenter"), "currentNotificationCenter"), "retain");
+    m1(unCenter, "setDelegate:", ctrl);
+    ((void(*)(id,SEL,NSUInteger,void*))objc_msgSend)(unCenter, S("requestAuthorizationWithOptions:completionHandler:"), 1 | 2 | 4, (void*)authDone);
+  }
 
   // paths
   id res = m0(m0(C("NSBundle"), "mainBundle"), "resourcePath");
@@ -406,7 +580,7 @@ int main(void) {
 
   // main menu (Cmd+Q, Cmd+W, copy and paste)
   id mainMenu = m0(m0(C("NSMenu"), "alloc"), "init");
-  id appItems[] = { menuItem("Hide Pocket Pal", "hide:", "h", 0, 0), m0(C("NSMenuItem"), "separatorItem"), menuItem("Quit Pocket Pal", "terminate:", "q", 0, 0) };
+  id appItems[] = { menuItem("Hide Pocket Pal", "hide:", "h", 0, 0), m0(C("NSMenuItem"), "separatorItem"), menuItem("Close Pocket Pal", "terminate:", "q", 0, 0) };
   id editItems[] = { menuItem("Cut", "cut:", "x", 0, 0), menuItem("Copy", "copy:", "c", 0, 0), menuItem("Paste", "paste:", "v", 0, 0), menuItem("Select All", "selectAll:", "a", 0, 0) };
   id winItems[] = { menuItem("Close Window", "performClose:", "w", 0, 0), menuItem("Minimize", "performMiniaturize:", "m", 0, 0) };
   m1(mainMenu, "addItem:", menuWith("Pocket Pal", appItems, 3));
@@ -424,6 +598,7 @@ int main(void) {
   m1(win, "setBackgroundColor:", ((id(*)(id,SEL,double,double,double,double))objc_msgSend)(C("NSColor"),
         S("colorWithSRGBRed:green:blue:alpha:"), 0.05, 0.04, 0.15, 1.0));
   m0(win, "center");
+  m1(win, "setDelegate:", ctrl);
 
   id config = m0(m0(C("WKWebViewConfiguration"), "alloc"), "init");
   ucc = m0(m0(config, "userContentController"), "retain");
@@ -440,11 +615,15 @@ int main(void) {
   setPetCount(1);
   m1(m0(items[0], "button"), "setImage:", m1(faces, "objectForKey:", str("none")));
 
-  // check the game twice a second
+  refreshBar();
+
+  // check the game twice a second, and work out pet stats again every 20 seconds (even with the game closed)
   ((id(*)(id,SEL,double,id,SEL,id,BOOL))objc_msgSend)(C("NSTimer"),
       S("scheduledTimerWithTimeInterval:target:selector:userInfo:repeats:"), 0.5, ctrl, S("tick:"), nil, YES);
+  ((id(*)(id,SEL,double,id,SEL,id,BOOL))objc_msgSend)(C("NSTimer"),
+      S("scheduledTimerWithTimeInterval:target:selector:userInfo:repeats:"), 20.0, ctrl, S("barTimer:"), nil, YES);
 
-  showWindow();
+  if (!backgroundLaunch) showWindow();
   m0(app, "run");
   return 0;
 }

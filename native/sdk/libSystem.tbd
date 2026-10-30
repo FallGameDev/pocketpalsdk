@@ -4,5 +4,5 @@ targets: [ arm64-macos, x86_64-macos ]
 install-name: '/usr/lib/libSystem.B.dylib'
 exports:
   - targets: [ arm64-macos, x86_64-macos ]
-    symbols: [ _snprintf, dyld_stub_binder ]
+    symbols: [ _snprintf, _strcmp, _strncpy, _getpid, __NSConcreteGlobalBlock, dyld_stub_binder ]
 ...

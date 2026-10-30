@@ -2,6 +2,12 @@
 
 A 3D digital pet for Mac by **Here Studios**. Adopt a cat, dog, human or your own uploaded character, keep them happy, fed and healthy, and watch their mood faces in your Mac menu bar.
 
+## Always running
+
+Installing the `.pkg` adds a login agent (`~/Library/LaunchAgents/com.herestudios.pocketpal.plist`) that starts Pocket Pal in the menu bar when you log in and restarts it if it crashes. Closing the window or pressing Cmd+Q only hides the game: the pets keep living in the menu bar, their stats keep changing, and macOS notifications go off when a pet is hungry, sad or sick.
+
+To remove it completely: `launchctl bootout gui/$(id -u)/com.herestudios.pocketpal`, then delete the plist above and `/Applications/Pocket Pal.app`.
+
 ## How updates work
 
 The Mac app checks this repo every time it opens:

@@ -5,10 +5,10 @@ set -e
 cd "$(dirname "$0")"
 LD=/usr/lib/llvm-18/bin/ld64.lld
 for A in arm64 x86_64; do
-  clang -target $A-apple-macos11.0 -O2 -fno-stack-protector -fno-builtin -Wall -Wno-unused-parameter -c main.c -o main_$A.o
+  clang -target $A-apple-macos11.0 -O2 -fblocks -fno-stack-protector -fno-builtin -Wall -Wno-unused-parameter -c main.c -o main_$A.o
   # ad-hoc signed so Apple Silicon Macs will run it
   $LD -arch $A -platform_version macos 11.0 14.0 -o PocketPal_$A main_$A.o \
-      sdk/libSystem.tbd sdk/libobjc.tbd sdk/Foundation.tbd sdk/AppKit.tbd sdk/WebKit.tbd -adhoc_codesign
+      sdk/libSystem.tbd sdk/libobjc.tbd sdk/Foundation.tbd sdk/AppKit.tbd sdk/WebKit.tbd sdk/UserNotifications.tbd -adhoc_codesign
 done
 # glue both into one "universal" binary (same thing Apple's lipo tool does)
 python3 - <<'EOF'

@@ -397,8 +397,7 @@ button{font-family:inherit;cursor:pointer}
   <div class="h2" style="text-align:center">Settings</div>
   <div class="setRow"><div class="txt"><b>🔊 Sound</b><small>Beeps and boops</small></div><div class="seg" data-set="sound"><button data-v="1">On</button><button data-v="0">Off</button></div></div>
   <div class="setRow"><div class="txt"><b>🚶 Pets walk around</b><small>Or stay put in the middle</small></div><div class="seg" data-set="wander"><button data-v="1">On</button><button data-v="0">Off</button></div></div>
-  <div class="setRow"><div class="txt"><b>⏱️ How fast pets get hungry</b><small>Relaxed is half speed, Busy is double</small></div><div class="seg" data-set="speed"><button data-v="0.5">Relaxed</button><button data-v="1">Normal</button><button data-v="2">Busy</button></div></div>
-  <div class="setRow"><div class="txt"><b>😊 Faces in the Mac menu bar</b><small>One face per pet at the top of the screen</small></div><div class="seg" data-set="menubar"><button data-v="1">On</button><button data-v="0">Off</button></div></div>
+  <div class="setRow"><div class="txt"><b>🔔 Pet alerts</b><small>Your pets live in the menu bar all the time. You get a notification when one is hungry, sad or sick, even with the game closed.</small></div></div>
   <div class="setRow"><div class="txt"><b>🔄 Auto updates</b><small id="updNote">Checks GitHub for a new version when the app opens</small></div><div style="display:flex;gap:8px;align-items:center"><div class="seg" data-set="autoUpdate"><button data-v="1">On</button><button data-v="0">Off</button></div><button class="btn cyan small" id="checkNow">Check now</button></div></div>
   <div class="setRow"><div class="txt"><b>📁 File manager</b><small>Opens a Finder folder with your pets, custom models and backgrounds</small></div><button class="btn cyan small" id="openFolder">Open folder</button></div>
   <div class="setRow" style="flex-direction:column;align-items:stretch"><div class="txt"><b>📦 Your custom models</b><small>Delete ones you don't use anymore</small></div><div id="modelList" style="display:flex;flex-direction:column;gap:8px;margin-top:6px"></div></div>
@@ -10524,7 +10523,7 @@ const IN_APP = ('__PP_SAVE' in window);
 const MAX_PETS = 6;
 let pets = [], active = 0, pet = null, soundOn = true;
 let wallet = 10;              // coins are shared by all your pets
-let settings = { wander:true, speed:1, menubar:true, autoUpdate:true };   // sound lives in soundOn
+let settings = { wander:true, autoUpdate:true };   // sound lives in soundOn
 let owned = new Set();        // accessories and backgrounds you bought
 let userBgs = [];             // backgrounds you uploaded: { key, name }
 function loadSave(){
@@ -10536,6 +10535,7 @@ function loadSave(){
       active = clamp(raw.active|0, 0, Math.max(0, pets.length-1));
       soundOn = raw.sound !== false;
       if(raw.settings) settings = { ...settings, ...raw.settings };
+      delete settings.speed; delete settings.menubar;      // pets always run at normal speed now
       customs = Array.isArray(raw.customs) ? raw.customs : [];
       userBgs = Array.isArray(raw.userBgs) ? raw.userBgs : [];
       owned = new Set(raw.owned || []);
@@ -10555,7 +10555,6 @@ function saveNow(){
     pets: pets.map(p=>({ name:p.name, species:speciesLabel(p),
       face: p.sleeping ? 'sleep' : moodOf(p), moodText: p.sleeping ? 'Sleeping' : MOOD_TEXT[moodOf(p)],
       happy:Math.round(p.happy), food:Math.round(p.food), health:Math.round(p.health), sleeping:p.sleeping?1:0 })),
-    menubar: settings.menubar ? 1 : 0,
     save: JSON.stringify(data)
   });
 }
@@ -10685,7 +10684,6 @@ function moodOf(p){
   return 'sad';
 }
 function simulate(p, sec){
-  sec *= settings.speed || 1;                 // the "how fast pets get hungry" setting
   const slow = p.sleeping ? .5 : 1, hunger = AGES[p.age].hunger;
   p.food  -= sec * 0.0125 * hunger * slow;
   p.happy -= sec * 0.0105 * slow;
@@ -10892,7 +10890,7 @@ function openSettings(){
   drawSettings(); $('settings').classList.add('show');
 }
 function drawSettings(){
-  const vals = { sound: soundOn?'1':'0', wander: settings.wander?'1':'0', speed: String(settings.speed), menubar: settings.menubar?'1':'0', autoUpdate: settings.autoUpdate?'1':'0' };
+  const vals = { sound: soundOn?'1':'0', wander: settings.wander?'1':'0', autoUpdate: settings.autoUpdate?'1':'0' };
   $('verLine').textContent = `Pocket Pal version ${GAME_VERSION} · Here Studios`;
   document.querySelectorAll('#settings .seg').forEach(seg=>{
     seg.querySelectorAll('button').forEach(b=> b.classList.toggle('on', b.dataset.v === vals[seg.dataset.set]));
@@ -10914,8 +10912,6 @@ document.querySelectorAll('#settings .seg button').forEach(b=>b.onclick=()=>{
   const key = b.parentElement.dataset.set, v = b.dataset.v;
   if(key==='sound') soundOn = v==='1';
   if(key==='wander'){ settings.wander = v==='1'; if(mainStage && mainStage.actor){ mainStage.actor.wander = settings.wander; mainStage.actor.st.targetX = null; } }
-  if(key==='speed') settings.speed = +v;
-  if(key==='menubar') settings.menubar = v==='1';
   if(key==='autoUpdate') settings.autoUpdate = v==='1';
   sfx.click(); saveNow(); refreshMenu(); drawSettings();
 });
@@ -10924,7 +10920,7 @@ document.querySelectorAll('#settings .seg button').forEach(b=>b.onclick=()=>{
    When the Mac app opens, ask GitHub for the newest game version.
    If it is newer than this one, download it and the app swaps it in.
    ========================================================= */
-const GAME_VERSION = 1;
+const GAME_VERSION = 2;
 const REPO = 'FallGameDev/pocketpalsdk';
 async function getURL(url, ms, asText){
   const ctl = new AbortController(), t = setTimeout(()=>ctl.abort(), ms);
