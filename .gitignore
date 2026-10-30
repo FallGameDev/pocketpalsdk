@@ -1,0 +1,7 @@
+build/
+native/*.o
+native/PocketPal
+native/PocketPal_*
+*.pkg
+.DS_Store
+__pycache__/

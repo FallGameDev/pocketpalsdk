@@ -1,0 +1,2480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pocket Pal</title>
+<!-- POCKET_PAL_GAME -->
+<style>
+/* =========================================================
+   POCKET PAL by Here Studios  (3D version)
+   Chunky pop style: night sky, thick outlines, heavy shadows
+   ========================================================= */
+:root{
+  --ink:#120f2b; --night1:#0d0b26; --night2:#24164f; --card:#2b2160; --card2:#3a2c7a;
+  --pink:#ff4fa3; --yellow:#ffd23f; --cyan:#3ee8ff; --green:#5cff8a; --orange:#ffb020; --red:#ff4d5e; --white:#fff7ec;
+  --shadow:0 6px 0 var(--ink);
+  --font:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold","Nunito",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-user-select:none;user-select:none}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--font);color:var(--white);font-weight:800;background:radial-gradient(ellipse at 50% 0%,var(--night2),var(--night1) 70%)}
+input{-webkit-user-select:text;user-select:text}
+button{font-family:inherit;cursor:pointer}
+
+/* twinkling star field */
+#sky{position:fixed;inset:0;pointer-events:none;z-index:0}
+.star{position:absolute;background:#fff;border-radius:50%;animation:twinkle var(--d,3s) ease-in-out infinite;animation-delay:var(--dl,0s)}
+@keyframes twinkle{0%,100%{opacity:.2;transform:scale(.7)}50%{opacity:1;transform:scale(1.1)}}
+
+/* screens */
+.screen{position:absolute;inset:0;display:none;z-index:1}
+.screen.show{display:flex}
+
+/* chunky pieces */
+.card{background:var(--card);border:4px solid var(--ink);border-radius:26px;box-shadow:var(--shadow)}
+.btn{border:4px solid var(--ink);border-radius:18px;box-shadow:0 6px 0 var(--ink);padding:12px 22px;font-size:20px;font-weight:900;color:var(--ink);background:var(--yellow);transition:transform .08s,box-shadow .08s}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 0 var(--ink)}
+.btn:active{transform:translateY(5px);box-shadow:0 1px 0 var(--ink)}
+.btn.pink{background:var(--pink);color:#fff}.btn.cyan{background:var(--cyan)}.btn.green{background:var(--green)}
+.btn.ghost{background:var(--card2);color:var(--white)}
+.btn.small{font-size:15px;padding:8px 14px;border-radius:14px}
+.btn:disabled{filter:grayscale(.8) brightness(.7);cursor:not-allowed}
+.title-text{font-size:64px;font-weight:900;color:var(--yellow);-webkit-text-stroke:5px var(--ink);paint-order:stroke fill;text-shadow:0 7px 0 var(--ink)}
+.h2{font-size:32px;font-weight:900;-webkit-text-stroke:4px var(--ink);paint-order:stroke fill;text-shadow:0 5px 0 var(--ink)}
+
+/* MENU */
+#menu{flex-direction:column;align-items:center;justify-content:center;gap:18px}
+#menu .tag{font-size:18px;color:var(--cyan);text-shadow:0 3px 0 var(--ink)}
+.parade{display:flex;gap:10px;margin:6px 0;min-height:130px;align-items:flex-end}
+.parade img{width:120px;height:130px;object-fit:contain;animation:bob 1.6s ease-in-out infinite;filter:drop-shadow(0 5px 0 var(--ink))}
+.parade img:nth-child(2){animation-delay:.2s}.parade img:nth-child(3){animation-delay:.4s}.parade img:nth-child(4){animation-delay:.6s}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.menu-btns{display:flex;flex-direction:column;gap:14px;align-items:center}
+.menu-btns .btn{min-width:260px;font-size:26px}
+.credit{position:absolute;bottom:14px;font-size:13px;opacity:.6}
+
+/* SETUP */
+.setup{flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:18px}
+.steps{display:flex;gap:10px}
+.steps span{width:38px;height:12px;border-radius:8px;background:var(--card2);border:3px solid var(--ink)}
+.steps span.on{background:var(--yellow)}
+.choices{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;max-width:860px}
+.choice{width:170px;padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--card);border:4px solid var(--ink);border-radius:24px;box-shadow:var(--shadow);color:var(--white);font-size:20px;font-weight:900;transition:transform .1s}
+.choice:hover{transform:translateY(-4px) rotate(-1deg);background:var(--card2)}
+.choice:active{transform:translateY(3px)}
+.choice img{width:130px;height:130px;object-fit:contain}
+.choice .big{font-size:58px;line-height:1.1}
+.choice small{font-size:13px;color:var(--cyan);font-weight:800}
+.back{position:absolute;top:18px;left:18px}
+.make{display:flex;gap:26px;align-items:center;flex-wrap:wrap;justify-content:center}
+.preview{width:280px;height:300px;overflow:hidden;background:radial-gradient(circle at 50% 70%,#4a3a9a,var(--card2) 70%)}
+#previewStage{width:100%;height:100%}
+.form{width:380px;padding:20px;display:flex;flex-direction:column;gap:12px}
+.label{font-size:16px;color:var(--cyan)}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:36px;height:36px;border-radius:50%;border:4px solid var(--ink);box-shadow:0 3px 0 var(--ink);font-size:16px;line-height:1}
+.sw.on{outline:4px solid var(--yellow);outline-offset:2px}
+.sw.orig{background:conic-gradient(#d9a35a,#6d5a4a,#f3e6cf,#d9a35a)}
+.types{display:flex;gap:8px}.types .btn{flex:1}.types .btn.on{background:var(--pink);color:#fff}
+.namerow{display:flex;gap:8px}
+#nameInput{flex:1;min-width:0;font-family:inherit;font-size:22px;font-weight:900;padding:10px 14px;border:4px solid var(--ink);border-radius:16px;background:var(--white);color:var(--ink);outline:none}
+
+/* PET SCREEN */
+#pet{flex-direction:column}
+.topbar{height:70px;flex:none;display:flex;align-items:center;gap:14px;padding:0 16px;background:var(--card);border-bottom:4px solid var(--ink);box-shadow:0 4px 0 var(--ink);z-index:5}
+.logo{flex:none;white-space:nowrap;font-size:24px;font-weight:900;color:var(--yellow);-webkit-text-stroke:3px var(--ink);paint-order:stroke fill;text-shadow:0 3px 0 var(--ink)}
+.petTabs{flex:1;display:flex;gap:8px;align-items:center;min-width:0;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:none}
+.petTabs::-webkit-scrollbar{display:none}
+.tab{flex:none;display:flex;align-items:center;gap:6px;padding:5px 12px 5px 6px;border:3px solid var(--ink);border-radius:999px;background:var(--card2);color:var(--white);font-size:15px;font-weight:900;box-shadow:0 3px 0 var(--ink)}
+.tab .tf{font-size:20px;line-height:1}
+.tab.on{background:var(--yellow);color:var(--ink)}
+.tab.add{padding:5px 12px;background:var(--green);color:var(--ink)}
+.tab:active{transform:translateY(3px);box-shadow:0 0 0 var(--ink)}
+.who{position:absolute;left:14px;top:14px;z-index:3;display:flex;flex-direction:column;line-height:1.15;padding:8px 14px;background:var(--card);border:4px solid var(--ink);border-radius:18px;box-shadow:0 4px 0 var(--ink);pointer-events:none}.who b{font-size:20px}.who small{font-size:13px;color:var(--cyan)}
+.spacer{flex:1}
+.moodbadge{flex:none;white-space:nowrap;display:flex;align-items:center;gap:8px;padding:6px 14px 6px 8px;border:4px solid var(--ink);border-radius:999px;box-shadow:0 4px 0 var(--ink);font-size:18px;color:var(--ink);background:var(--green);transition:background .3s}
+.moodbadge .face{font-size:28px;line-height:1}
+.coins{flex:none;white-space:nowrap;padding:6px 14px;border:4px solid var(--ink);border-radius:999px;background:var(--yellow);color:var(--ink);box-shadow:0 4px 0 var(--ink);font-size:18px}
+.main{flex:1;display:grid;grid-template-columns:1fr 300px;gap:16px;padding:16px;min-height:0}
+@media (max-width:780px){.main{grid-template-columns:1fr;grid-template-rows:1fr auto}}
+
+.scene{position:relative;overflow:hidden;border:4px solid var(--ink);border-radius:26px;box-shadow:var(--shadow);min-height:260px}
+.scene .bg{position:absolute;inset:0}
+.scene .bg svg{width:100%;height:100%;display:block}
+#stage3d{position:absolute;inset:0;cursor:pointer}
+#stage3d canvas{display:block}
+.scene .dim{position:absolute;inset:0;background:#05031a;opacity:0;transition:opacity .8s;pointer-events:none}
+.scene.sleeping .dim{opacity:.45}
+#petWrap{position:absolute;pointer-events:none}   /* invisible box that follows the 3D pet (for effects) */
+.emote{position:absolute;transform:translate(-50%,-100%);font-size:30px;line-height:1;padding:4px 8px;background:var(--white);border:4px solid var(--ink);border-radius:16px;box-shadow:0 4px 0 var(--ink);pointer-events:none;z-index:3;transition:opacity .3s}
+.bubble{position:absolute;transform:translate(-50%,-100%) scale(0);transform-origin:50% 100%;background:var(--white);color:var(--ink);border:4px solid var(--ink);border-radius:20px;box-shadow:0 5px 0 var(--ink);padding:10px 16px;font-size:18px;max-width:70%;white-space:nowrap;text-align:center;transition:transform .2s cubic-bezier(.3,1.6,.5,1);z-index:4;pointer-events:none}
+.bubble.show{transform:translate(-50%,-100%) scale(1)}
+.zzz{position:absolute;font-size:34px;color:var(--cyan);-webkit-text-stroke:2px var(--ink);paint-order:stroke fill;animation:zz 2.4s linear infinite;pointer-events:none;z-index:3}
+@keyframes zz{0%{opacity:0;transform:translate(0,0) scale(.6)}20%{opacity:1}100%{opacity:0;transform:translate(40px,-90px) scale(1.2)}}
+.pop{position:absolute;font-size:30px;pointer-events:none;animation:floatup 1.2s ease-out forwards;z-index:4}
+@keyframes floatup{to{transform:translateY(-110px) scale(1.4);opacity:0}}
+.firefly{position:absolute;width:7px;height:7px;border-radius:50%;background:#e8ff7a;box-shadow:0 0 12px 4px #e8ff7a88;animation:fly 6s ease-in-out infinite;pointer-events:none}
+@keyframes fly{0%,100%{transform:translate(0,0);opacity:.3}50%{transform:translate(30px,-25px);opacity:1}}
+
+.panel{display:flex;flex-direction:column;gap:14px;min-height:0}
+.meters{padding:14px;display:flex;flex-direction:column;gap:12px}
+.meter .row{display:flex;justify-content:space-between;font-size:16px;margin-bottom:5px}
+.track{height:26px;border:4px solid var(--ink);border-radius:14px;background:#140f33;overflow:hidden;box-shadow:0 4px 0 var(--ink)}
+.fill{height:100%;border-radius:8px;transition:width .5s;box-shadow:inset 0 -6px 0 #0003,inset 0 4px 0 #fff5}
+.fill.happy{background:var(--pink)}.fill.food{background:var(--orange)}.fill.health{background:var(--red)}
+.fill.low{animation:blink .8s steps(2) infinite}
+@keyframes blink{50%{filter:brightness(1.6)}}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.actions .btn{font-size:18px;padding:12px 8px;display:flex;align-items:center;justify-content:center;gap:6px}
+.actions .wide{grid-column:span 2}
+
+/* overlays */
+.overlay{position:fixed;inset:0;background:#05031acc;display:none;align-items:center;justify-content:center;z-index:20}
+.overlay.show{display:flex}
+.modal{padding:24px;max-width:520px;width:92%;display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center}
+.foods{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%}
+.food{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px;background:var(--card2);color:var(--white);border:4px solid var(--ink);border-radius:20px;box-shadow:0 5px 0 var(--ink);font-size:17px;font-weight:900}
+.food:active{transform:translateY(4px);box-shadow:0 1px 0 var(--ink)}
+.food .e{font-size:42px}.food small{color:var(--cyan);font-size:13px}.food .cost{color:var(--yellow)}
+.game{position:absolute;inset:0;z-index:6;display:none;cursor:crosshair}
+.game.show{display:block}
+.game .hud{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;font-size:20px;text-shadow:0 3px 0 var(--ink)}
+.game .timebar{position:absolute;bottom:0;left:0;height:10px;background:var(--yellow);border-top:3px solid var(--ink)}
+.fstar{position:absolute;font-size:44px;line-height:1;filter:drop-shadow(0 4px 0 var(--ink));animation:fall linear forwards;cursor:pointer}
+@keyframes fall{from{transform:translateY(-60px) rotate(0)}to{transform:translateY(var(--fall,500px)) rotate(200deg)}}
+.toast{position:fixed;left:50%;top:84px;transform:translateX(-50%) translateY(-30px);opacity:0;z-index:30;background:var(--yellow);color:var(--ink);border:4px solid var(--ink);border-radius:16px;box-shadow:0 5px 0 var(--ink);padding:10px 18px;font-size:18px;transition:all .25s;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.scene .bg img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* CUSTOM UPLOAD SCREEN */
+.upForm{width:420px;max-height:calc(100vh - 210px);overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px}
+.drop{border:4px dashed var(--cyan);border-radius:20px;padding:16px;text-align:center;background:#3ee8ff14;display:flex;flex-direction:column;gap:8px;align-items:center;transition:background .2s}
+.drop.over{background:#3ee8ff40}
+.drop .big{font-size:36px;line-height:1}
+.drop small{font-size:12px;color:var(--cyan);font-weight:800}
+.files{display:flex;flex-wrap:wrap;gap:6px}
+.fchip{font-size:12px;padding:4px 10px;border:3px solid var(--ink);border-radius:999px;background:var(--card2)}
+.fchip.model{background:var(--pink);color:#fff}.fchip.img{background:var(--cyan);color:var(--ink)}.fchip.json{background:var(--yellow);color:var(--ink)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--cyan);min-width:0}
+.field select,.field input[type=text],.nameField{font-family:inherit;font-size:15px;font-weight:800;padding:8px 10px;border:3px solid var(--ink);border-radius:12px;background:var(--white);color:var(--ink);min-width:0}
+.field input[type=range]{accent-color:var(--pink)}
+.mine{display:flex;flex-wrap:wrap;gap:6px}
+.mine .tab{font-size:13px}
+.note{font-size:13px;color:#ffd9a8;font-weight:800}
+.preview .msg{position:absolute;inset:auto 10px 10px 10px;text-align:center;font-size:13px;color:var(--cyan)}
+.preview{position:relative}
+
+/* SETTINGS */
+.settings{max-width:560px;max-height:calc(100vh - 60px);overflow-y:auto;align-items:stretch;text-align:left}
+.setRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:var(--card2);border:4px solid var(--ink);border-radius:18px;box-shadow:0 4px 0 var(--ink)}
+.setRow .txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.setRow .btn{flex:none;white-space:nowrap}
+.setRow .txt b{font-size:17px}.setRow .txt small{font-size:12px;color:var(--cyan);font-weight:800}
+.seg{display:flex;flex:none;border:3px solid var(--ink);border-radius:14px;overflow:hidden}
+.seg button{border:0;padding:7px 11px;font-size:14px;font-weight:900;background:var(--card);color:var(--white)}
+.seg button+button{border-left:3px solid var(--ink)}
+.seg button.on{background:var(--yellow);color:var(--ink)}
+.modelRow{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:15px}
+.modelRow small{color:var(--cyan)}
+.ver{text-align:center;font-size:12px;opacity:.6}
+
+/* PET SHOP */
+#shop{flex-direction:column}
+.shopMain{flex:1;display:grid;grid-template-columns:320px 1fr;gap:16px;padding:16px;min-height:0}
+@media (max-width:820px){.shopMain{grid-template-columns:1fr}}
+.shopLeft{display:flex;flex-direction:column;gap:12px;min-height:0}
+.shopStageCard{position:relative;flex:1;min-height:260px;overflow:hidden}
+#shopBg{position:absolute;inset:0}
+#shopBg svg,#shopBg img{width:100%;height:100%;object-fit:cover;display:block}
+#shopStage{position:absolute;inset:0}
+.shopRight{display:flex;flex-direction:column;gap:12px;min-height:0}
+.cats{display:flex;gap:10px;flex-wrap:wrap}
+.cats{flex-wrap:nowrap;overflow-x:auto}
+.cats .btn{flex:none;font-size:15px;padding:7px 12px;border-radius:14px}
+.cats .btn.on{background:var(--pink);color:#fff}
+.shelf{flex:1;overflow-y:auto;padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;align-content:start}
+.item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;background:var(--card2);color:var(--white);border:4px solid var(--ink);border-radius:20px;box-shadow:0 5px 0 var(--ink);font-size:16px;font-weight:900;text-align:center}
+.item:active{transform:translateY(4px);box-shadow:0 1px 0 var(--ink)}
+.item .e{font-size:40px;line-height:1.1}
+.item small{font-size:12px;color:var(--cyan)}
+.item .tag2{font-size:13px;padding:2px 10px;border-radius:999px;border:3px solid var(--ink);background:var(--yellow);color:var(--ink)}
+.item.owned .tag2{background:var(--cyan)}
+.item.on{background:var(--pink)}
+.item.on .tag2{background:var(--green)}
+.item.locked{opacity:.5}
+.slotHead{grid-column:1/-1;font-size:18px;color:var(--yellow);text-shadow:0 3px 0 var(--ink);margin-top:4px}
+.makeover{grid-column:1/-1;display:flex;flex-direction:column;gap:10px}
+.makeover .namerow input{flex:1;min-width:0}
+
+</style>
+</head>
+<body>
+<div id="sky"></div>
+
+<!-- ================= MENU ================= -->
+<section id="menu" class="screen show">
+  <div class="title-text">Pocket Pal</div>
+  <div class="tag">Your very own 3D pet!</div>
+  <div class="parade" id="parade"></div>
+  <div class="menu-btns">
+    <button class="btn pink" id="playBtn" disabled>Loading pets...</button>
+    <button class="btn ghost small" id="newPetBtn" style="display:none">New Pet</button>
+    <button class="btn ghost small" id="soundBtn">🔊 Sound: On</button>
+    <button class="btn ghost small" id="titleSettings">⚙️ Settings</button>
+  </div>
+  <div class="tag" id="updStatus" style="font-size:14px;min-height:18px"></div>
+  <div class="credit">Here Studios</div>
+</section>
+
+<!-- STEP 1: SPECIES -->
+<section id="sSpecies" class="screen setup">
+  <button class="btn ghost small back" data-go="menu">◀ Back</button>
+  <div class="steps"><span class="on"></span><span></span><span></span><span></span></div>
+  <div class="h2">Pick your pet!</div>
+  <div class="choices" id="speciesChoices"></div>
+</section>
+
+<!-- STEP 1b: CUSTOM UPLOAD -->
+<section id="sCustom" class="screen setup">
+  <button class="btn ghost small back" data-go="sSpecies">◀ Back</button>
+  <div class="steps"><span class="on"></span><span></span><span></span><span></span></div>
+  <div class="h2">Make your own pet!</div>
+  <div class="make">
+    <div class="card preview"><div id="customStage" style="width:100%;height:100%"></div><div class="msg" id="customMsg">Upload a 3D model to see it here</div></div>
+    <div class="card upForm">
+      <div id="mineBox" style="display:none"><div class="label">Your characters</div><div class="mine" id="mineList"></div></div>
+      <label class="drop" id="dropZone">
+        <div class="big">📦</div>
+        <b>Drop files here or click to choose</b>
+        <small>Models: .glb · .gltf (+ .bin) · .fbx · .obj<br>Pictures: .png · .jpg for skins and backgrounds<br>Pet packs: .json</small>
+        <input type="file" id="fileIn" multiple accept=".glb,.gltf,.bin,.fbx,.obj,.png,.jpg,.jpeg,.webp,.json" hidden>
+      </label>
+      <div class="files" id="fileList"></div>
+      <div class="field">What kind of creature is it?<input type="text" id="cLabel" maxlength="16" placeholder="Dragon, Robot, Frog..."></div>
+      <div class="row2">
+        <div class="field">Skin picture<select id="cTex"></select></div>
+        <div class="field">Background<select id="cBg"></select></div>
+      </div>
+      <div class="row2">
+        <div class="field">Size <input type="range" id="cScale" min="0.4" max="1.8" step="0.05" value="1"></div>
+        <div class="field">Turn <input type="range" id="cRot" min="-180" max="180" step="15" value="0"></div>
+      </div>
+      <div class="field">Up / down <input type="range" id="cY" min="-0.4" max="0.4" step="0.02" value="0"></div>
+      <div id="animBox" style="display:none">
+        <div class="label">Animations in your model</div>
+        <div class="row2">
+          <div class="field">Standing<select id="aIdle"></select></div>
+          <div class="field">Walking<select id="aWalk"></select></div>
+          <div class="field">Happy<select id="aHappy"></select></div>
+          <div class="field">Sleeping<select id="aSleepA"></select></div>
+        </div>
+      </div>
+      <div class="note" id="cNote"></div>
+      <button class="btn green" id="cNext" disabled>Next ▶</button>
+    </div>
+  </div>
+</section>
+
+<!-- STEP 2: GENDER -->
+<section id="sGender" class="screen setup">
+  <button class="btn ghost small back" data-go="sSpecies">◀ Back</button>
+  <div class="steps"><span class="on"></span><span class="on"></span><span></span><span></span></div>
+  <div class="h2">Boy or girl?</div>
+  <div class="choices" id="genderChoices"></div>
+</section>
+
+<!-- STEP 3: AGE -->
+<section id="sAge" class="screen setup">
+  <button class="btn ghost small back" data-go="sGender">◀ Back</button>
+  <div class="steps"><span class="on"></span><span class="on"></span><span class="on"></span><span></span></div>
+  <div class="h2">How old?</div>
+  <div class="choices" id="ageChoices"></div>
+</section>
+
+<!-- STEP 4: LOOK + NAME -->
+<section id="sName" class="screen setup">
+  <button class="btn ghost small back" data-go="sAge">◀ Back</button>
+  <div class="steps"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span></div>
+  <div class="h2">Name your pal!</div>
+  <div class="make">
+    <div class="card preview"><div id="previewStage"></div></div>
+    <div class="card form">
+      <div id="typeBox" style="display:none"><div class="label">Creature type</div><div class="types" id="typeBtns"></div></div>
+      <div class="label" id="colorLabel">Color</div>
+      <div class="swatches" id="colorSw"></div>
+      <div id="hairBox" style="display:none"><div class="label">Hair</div><div class="swatches" id="hairSw"></div></div>
+      <div id="shirtBox" style="display:none"><div class="label">Shirt</div><div class="swatches" id="shirtSw"></div></div>
+      <div class="label">Name</div>
+      <div class="namerow">
+        <input id="nameInput" maxlength="14" placeholder="Type a name...">
+        <button class="btn cyan small" id="randName" title="Random name">🎲</button>
+      </div>
+      <button class="btn green" id="doneBtn">Let's go! ✨</button>
+    </div>
+  </div>
+</section>
+
+<!-- PET SCREEN -->
+<section id="pet" class="screen">
+  <div class="topbar">
+    <div class="logo">Pocket Pal</div>
+    <div class="petTabs" id="petTabs"></div>
+    <div class="moodbadge" id="moodBadge"><span class="face" id="moodFace">😊</span><span id="moodText">Happy</span></div>
+    <div class="coins">🪙 <span id="coinCount">0</span></div>
+    <button class="btn ghost small" id="menuBtn">☰</button>
+  </div>
+  <div class="main">
+    <div class="scene" id="scene">
+      <div class="bg" id="sceneBg"></div>
+      <div id="sceneFx"></div>
+      <div id="stage3d"></div>
+      <div id="petWrap"></div>
+      <div class="who"><b id="petName">Pal</b><small id="petInfo">Cat · Day 1</small></div>
+      <div class="emote" id="emote">😊</div>
+      <div class="bubble" id="bubble">Hi!</div>
+      <div class="dim"></div>
+      <div class="game" id="game">
+        <div class="hud"><span>⭐ <b id="gScore">0</b></span><span>Catch the stars!</span><span id="gTime">15</span></div>
+        <div class="timebar" id="gBar"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="card meters">
+        <div class="meter"><div class="row"><span>😊 Happiness</span><span id="vHappy">100%</span></div><div class="track"><div class="fill happy" id="mHappy"></div></div></div>
+        <div class="meter"><div class="row"><span>🍖 Food</span><span id="vFood">100%</span></div><div class="track"><div class="fill food" id="mFood"></div></div></div>
+        <div class="meter"><div class="row"><span>❤️ Health</span><span id="vHealth">100%</span></div><div class="track"><div class="fill health" id="mHealth"></div></div></div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="aFeed">🍖 Feed</button>
+        <button class="btn pink" id="aPlay">⭐ Play</button>
+        <button class="btn cyan" id="aPet">💖 Pet</button>
+        <button class="btn green" id="aHeal">💊 Heal</button>
+        <button class="btn ghost wide" id="aSleep">🌙 Sleep</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PET SHOP -->
+<section id="shop" class="screen">
+  <div class="topbar">
+    <div class="logo">Pet Shop</div>
+    <div class="petTabs" id="shopTabs"></div>
+    <div class="coins">🪙 <span id="shopCoins">0</span></div>
+    <button class="btn cyan small" id="shopBack">◀ Back to pet</button>
+  </div>
+  <div class="shopMain">
+    <div class="shopLeft">
+      <div class="card shopStageCard"><div id="shopBg"></div><div id="shopStage"></div></div>
+    </div>
+    <div class="shopRight">
+      <div class="cats" id="shopCats">
+        <button class="btn on" data-cat="acc">🎩 Accessories</button>
+        <button class="btn" data-cat="make">✂️ Makeover</button>
+        <button class="btn" data-cat="pot">🧪 Potions</button>
+        <button class="btn" data-cat="bg">🖼️ Backgrounds</button>
+      </div>
+      <div class="card shelf" id="shelf"></div>
+    </div>
+  </div>
+</section>
+<input type="file" id="bgFileIn" accept=".png,.jpg,.jpeg,.webp" hidden>
+
+<div class="overlay" id="foodTray"><div class="card modal"><div class="h2">Snack time!</div><div class="foods" id="foodList"></div><button class="btn ghost small" data-close="foodTray">Close</button></div></div>
+<div class="overlay" id="popup"><div class="card modal"><div class="h2" id="popTitle">Hi</div><div id="popText" style="font-size:18px"></div><div style="display:flex;gap:12px" id="popBtns"></div></div></div>
+<div class="overlay" id="gameMenu"><div class="card modal">
+  <div class="h2">Menu</div>
+  <button class="btn cyan" id="mResume">Back to pet</button>
+  <button class="btn" id="mShop">🛍️ Pet Shop</button>
+  <button class="btn ghost" id="mSettings">⚙️ Settings</button>
+  <button class="btn ghost" id="mTitle">Title screen</button>
+  <button class="btn green" id="mAdd">Adopt another pet</button>
+  <button class="btn pink" id="mNew">Say goodbye to this pet</button>
+</div></div>
+<div class="overlay" id="settings"><div class="card modal settings">
+  <div class="h2" style="text-align:center">Settings</div>
+  <div class="setRow"><div class="txt"><b>🔊 Sound</b><small>Beeps and boops</small></div><div class="seg" data-set="sound"><button data-v="1">On</button><button data-v="0">Off</button></div></div>
+  <div class="setRow"><div class="txt"><b>🚶 Pets walk around</b><small>Or stay put in the middle</small></div><div class="seg" data-set="wander"><button data-v="1">On</button><button data-v="0">Off</button></div></div>
+  <div class="setRow"><div class="txt"><b>⏱️ How fast pets get hungry</b><small>Relaxed is half speed, Busy is double</small></div><div class="seg" data-set="speed"><button data-v="0.5">Relaxed</button><button data-v="1">Normal</button><button data-v="2">Busy</button></div></div>
+  <div class="setRow"><div class="txt"><b>😊 Faces in the Mac menu bar</b><small>One face per pet at the top of the screen</small></div><div class="seg" data-set="menubar"><button data-v="1">On</button><button data-v="0">Off</button></div></div>
+  <div class="setRow"><div class="txt"><b>🔄 Auto updates</b><small id="updNote">Checks GitHub for a new version when the app opens</small></div><div style="display:flex;gap:8px;align-items:center"><div class="seg" data-set="autoUpdate"><button data-v="1">On</button><button data-v="0">Off</button></div><button class="btn cyan small" id="checkNow">Check now</button></div></div>
+  <div class="setRow"><div class="txt"><b>📁 File manager</b><small>Opens a Finder folder with your pets, custom models and backgrounds</small></div><button class="btn cyan small" id="openFolder">Open folder</button></div>
+  <div class="setRow" style="flex-direction:column;align-items:stretch"><div class="txt"><b>📦 Your custom models</b><small>Delete ones you don't use anymore</small></div><div id="modelList" style="display:flex;flex-direction:column;gap:8px;margin-top:6px"></div></div>
+  <button class="btn green" data-close="settings">Done</button>
+  <div class="ver" id="verLine">Pocket Pal · Here Studios</div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<!-- three.js r147 + loaders (inlined so the app works offline) -->
+<script>/*__LIBS__*/</script>
+<!-- the cat and dog models + cat texture, stored as base64 text -->
+<script>window.PP_ASSETS = /*__ASSETS__*/;</script>
+
+<script>
+/* =========================================================
+   DATA
+   ========================================================= */
+const SPECIES = {
+  cat:    { label:'Cat',    colors:['orig','#e8892c','#9aa0b0','#3a3a40','#f2eee6','#e9cf9c'], scene:'rooftop' },
+  dog:    { label:'Dog',    colors:['orig','#6b4126','#2e2a2a','#f1ece2','#8d8f99','#b5532a'], scene:'yard' },
+  human:  { label:'Human',  colors:['#ffe0c4','#f2c49b','#d89b6a','#a86b45','#6e4429'],        scene:'bedroom' },
+  custom: { label:'Custom', colors:['#6c7bff','#ff4fa3','#5cff8a','#3ee8ff','#ffd23f','#a46bff','#ff6b4a'], scene:'space' },   // old built-in creatures (still loads old saves)
+  upload: { label:'Custom', colors:['orig','#ff8fc8','#8fe9ff','#9dffb5','#ffe27a','#c9a8ff','#ffab8f'], scene:'space' }    // characters you upload
+};
+const HAIR = ['#5a3a22','#1c1820','#e8c260','#c4502c','#ff4fa3','#3ee8ff'];
+const SHIRTS = ['#3ee8ff','#ff4fa3','#5cff8a','#ffd23f','#a46bff','#ff6b4a'];
+const CUSTOM_TYPES = { blob:'Blob', bunny:'Bunny', alien:'Alien' };
+const GENDERS = {
+  boy:  { label:'Boy',        icon:'💙', pro:'he',   obj:'him' },
+  girl: { label:'Girl',       icon:'💖', pro:'she',  obj:'her' },
+  nb:   { label:'Non-binary', icon:'💛', pro:'they', obj:'them' }
+};
+const AGES = {
+  baby:  { label:'Baby',  icon:'🍼', scale:.62, hunger:1.3,  note:'Gets hungry fast!' },
+  kid:   { label:'Kid',   icon:'🧸', scale:.78, hunger:1.15, note:'Loves to play' },
+  teen:  { label:'Teen',  icon:'🎧', scale:.9,  hunger:1.05, note:'Always snacking' },
+  adult: { label:'Adult', icon:'☕', scale:1,   hunger:1,    note:'Nice and steady' },
+  elder: { label:'Elder', icon:'👓', scale:.96, hunger:.85,  note:'Wise and chill' }
+};
+const NAMES = {
+  cat:   ['Whiskers','Mochi','Luna','Pumpkin','Biscuit','Pepper','Noodle','Ziggy','Marble','Tofu'],
+  dog:   ['Buddy','Waffles','Daisy','Rocket','Pickles','Scout','Peanut','Bolt','Maple','Muffin'],
+  human: ['Alex','Sam','Riley','Jordan','Max','Mia','Leo','Zoe','Kai','Ivy'],
+  custom:['Blip','Gloop','Zorb','Sprinkle','Nebula','Wobble','Pixel','Fizz','Comet','Jelly'],
+  upload:['Blip','Gloop','Zorb','Sprinkle','Nebula','Wobble','Pixel','Fizz','Comet','Jelly']
+};
+const FOODS = [
+  { id:'basic', name:'Snack',   cost:0, food:15, happy:2,  health:0, note:'Free!',     e:{cat:'🥣',dog:'🦴',human:'🥪',custom:'🍪',upload:'🍪'} },
+  { id:'veg',   name:'Healthy', cost:2, food:20, happy:0,  health:6, note:'+Health',   e:{cat:'🥛',dog:'🥕',human:'🥦',custom:'🍇',upload:'🍇'} },
+  { id:'treat', name:'Treat',   cost:3, food:25, happy:10, health:0, note:'+Happy',    e:{cat:'🐟',dog:'🍖',human:'🍕',custom:'🍩',upload:'🍩'} },
+  { id:'feast', name:'Feast',   cost:8, food:50, happy:18, health:4, note:'Big meal!', e:{cat:'🍣',dog:'🥩',human:'🍔',custom:'🎂',upload:'🎂'} }
+];
+const LINES = {
+  happy:['I love you!','Best day ever!','Hehe!','You are the best!','Yay!'],
+  meh:['Hmm...','I am kinda bored.','Can we play?','Meh.'],
+  sad:['I feel lonely...','Pet me please?','I am sad...'],
+  hungry:['My tummy hurts...','So hungry!','Food please!'],
+  hurt:['I do not feel good...','I need medicine...','Ouch...']
+};
+// menu bar face for each mood (the Mac app reads this too)
+const FACES = { happy:'😊', meh:'😐', sad:'😢', hungry:'🤢', hurt:'🥵' };
+const MOOD_TEXT = { happy:'Happy', meh:'Meh', sad:'Sad', hungry:'Hungry', hurt:'Not feeling well' };
+const MOOD_COLOR = { happy:'var(--green)', meh:'var(--yellow)', sad:'var(--cyan)', hungry:'#b6e36a', hurt:'var(--red)' };
+
+/* helpers */
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+const lerp = (a,b,t) => a + (b-a)*t;
+const smooth = (e0,e1,x) => { const t = clamp((x-e0)/(e1-e0),0,1); return t*t*(3-2*t); };
+// move "cur" toward "target" smoothly, framerate independent
+const approach = (cur, target, rate, dt) => cur + (target-cur) * (1 - Math.exp(-rate*dt));
+
+/* =========================================================
+   BACKGROUNDS (2D art behind the 3D pet)
+   ========================================================= */
+function sceneSVG(kind){
+  const O='#120f2b';
+  let stars='';
+  for(let i=0;i<40;i++) stars+=`<circle cx="${Math.random()*1000}" cy="${Math.random()*330}" r="${Math.random()*2+1}" fill="#fff" opacity="${Math.random()*.6+.3}"/>`;
+  const wrap=(defs,body)=>`<svg viewBox="0 0 1000 600" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg"><defs>${defs}</defs>${body}</svg>`;
+  if(kind==='rooftop'){ // CAT: moonlit rooftops
+    let wins='';
+    [[0,250,160],[150,200,130],[270,280,170],[620,230,150],[760,180,120],[870,260,140]].forEach(([x,y,w])=>{
+      wins+=`<rect x="${x}" y="${y}" width="${w}" height="${600-y}" fill="#2a1d57" stroke="${O}" stroke-width="5"/>`;
+      for(let wy=y+24;wy<440;wy+=46) for(let wx=x+18;wx<x+w-26;wx+=38) wins+=`<rect x="${wx}" y="${wy}" width="18" height="24" rx="4" fill="${Math.random()<.45?'#ffd23f':'#3b2c75'}" stroke="${O}" stroke-width="3"/>`;
+    });
+    return wrap(`<linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#140b3a"/><stop offset="1" stop-color="#4a2a86"/></linearGradient>`,
+      `<rect width="1000" height="600" fill="url(#g1)"/>${stars}<circle cx="820" cy="110" r="90" fill="#fff4c2" opacity=".12"/><circle cx="820" cy="110" r="56" fill="#fff4c2" stroke="${O}" stroke-width="6"/>${wins}
+       <path d="M-10 600 L-10 470 L500 440 L1010 470 L1010 600 Z" fill="#5a3a9a" stroke="${O}" stroke-width="7"/><path d="M40 500 L960 500 M20 550 L980 550" stroke="#3f2875" stroke-width="5"/>
+       <rect x="760" y="380" width="60" height="80" fill="#c4503c" stroke="${O}" stroke-width="6"/><rect x="750" y="370" width="80" height="20" rx="5" fill="#a03c2e" stroke="${O}" stroke-width="6"/>`);
+  }
+  if(kind==='yard'){ // DOG: backyard + doghouse
+    let fence=''; for(let x=10;x<1000;x+=62) fence+=`<rect x="${x}" y="300" width="40" height="160" rx="14" fill="#9a6a48" stroke="${O}" stroke-width="5"/>`;
+    return wrap(`<linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#081638"/><stop offset="1" stop-color="#1f4a86"/></linearGradient>`,
+      `<rect width="1000" height="600" fill="url(#g2)"/>${stars}<circle cx="170" cy="100" r="44" fill="#fff4c2" stroke="${O}" stroke-width="6"/><circle cx="190" cy="88" r="40" fill="#13285a"/>
+       ${fence}<rect x="0" y="340" width="1000" height="14" fill="#7a5034" stroke="${O}" stroke-width="5"/>
+       <path d="M-10 610 L-10 440 Q250 400 500 425 Q760 450 1010 415 L1010 610 Z" fill="#2fae5e" stroke="${O}" stroke-width="7"/>
+       <g transform="translate(790 300)"><path d="M0 60 L90 0 L180 60 Z" fill="#ff4d5e" stroke="${O}" stroke-width="7"/><rect x="15" y="60" width="150" height="110" fill="#ffd23f" stroke="${O}" stroke-width="7"/><path d="M60 170 L60 115 Q90 80 120 115 L120 170 Z" fill="#2a1d57" stroke="${O}" stroke-width="6"/></g>`);
+  }
+  if(kind==='bedroom'){ // HUMAN: cozy bedroom
+    return wrap(`<linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d0b30"/><stop offset="1" stop-color="#2b2070"/></linearGradient>`,
+      `<rect width="1000" height="600" fill="#33286a"/><path d="M0 80 H1000 M0 160 H1000 M0 240 H1000 M0 320 H1000" stroke="#3b2f78" stroke-width="4"/>
+       <rect x="360" y="50" width="280" height="210" rx="18" fill="url(#g3)" stroke="${O}" stroke-width="8"/>
+       ${stars.replace(/cx="([\d.]+)" cy="([\d.]+)"/g,(m,x,y)=>`cx="${370+x*.26}" cy="${60+y*.58}"`)}
+       <circle cx="580" cy="110" r="26" fill="#fff4c2" stroke="${O}" stroke-width="5"/><path d="M500 50 V260 M360 155 H640" stroke="${O}" stroke-width="7"/>
+       <rect x="150" y="80" width="120" height="150" rx="12" fill="#ff4fa3" stroke="${O}" stroke-width="6" transform="rotate(-6 210 155)"/>
+       <path d="M210 120 L222 146 L250 148 L228 166 L236 194 L210 178 L184 194 L192 166 L170 148 L198 146 Z" fill="#ffd23f" stroke="${O}" stroke-width="5" transform="rotate(-6 210 155)"/>
+       <rect x="-10" y="400" width="1020" height="210" fill="#5a3f86" stroke="${O}" stroke-width="7"/><path d="M0 460 H1000 M0 530 H1000" stroke="#4a3374" stroke-width="5"/>
+       <ellipse cx="500" cy="520" rx="260" ry="46" fill="#3ee8ff" opacity=".5" stroke="${O}" stroke-width="6"/>
+       <g transform="translate(10 290)"><rect x="0" y="40" width="230" height="110" rx="20" fill="#a46bff" stroke="${O}" stroke-width="7"/><rect x="10" y="0" width="80" height="60" rx="18" fill="#fff7ec" stroke="${O}" stroke-width="6"/><rect x="0" y="80" width="230" height="70" rx="20" fill="#7a4fe0" stroke="${O}" stroke-width="7"/></g>
+       <g transform="translate(840 260)"><circle cx="60" cy="40" r="110" fill="#ffd23f" opacity=".12"/><path d="M20 70 L100 70 L80 10 L40 10 Z" fill="#ffd23f" stroke="${O}" stroke-width="6"/><rect x="54" y="70" width="12" height="80" fill="#2a1d57" stroke="${O}" stroke-width="5"/><rect x="20" y="146" width="80" height="16" rx="6" fill="#2a1d57" stroke="${O}" stroke-width="5"/></g>`);
+  }
+  return wrap(`<linearGradient id="g4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#05031a"/><stop offset="1" stop-color="#2a1260"/></linearGradient>`,
+    `<rect width="1000" height="600" fill="url(#g4)"/>${stars}
+     <g transform="translate(170 150)"><circle r="62" fill="#ff6b4a" stroke="${O}" stroke-width="7"/><ellipse rx="110" ry="24" fill="none" stroke="#ffd23f" stroke-width="10" transform="rotate(-18)"/></g>
+     <circle cx="860" cy="100" r="34" fill="#3ee8ff" stroke="${O}" stroke-width="6"/>
+     <path d="M150 460 Q500 400 850 460 L700 600 L300 600 Z" fill="#6b4aa8" stroke="${O}" stroke-width="7"/>
+     <path d="M150 460 Q500 400 850 460 Q840 495 500 495 Q160 495 150 460 Z" fill="#5cff8a" stroke="${O}" stroke-width="7"/>
+     <path d="M210 462 L225 412 L240 462 Z M770 462 L785 402 L802 462 Z" fill="#ff4fa3" stroke="${O}" stroke-width="5"/>`);
+}
+
+/* =========================================================
+   3D: LOADING THE CAT AND DOG MODELS
+   ========================================================= */
+const M = { ready:false };      // loaded model data lives here
+function b64ToBuffer(b64){
+  const bin = atob(b64), u = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) u[i] = bin.charCodeAt(i);
+  return u.buffer;
+}
+function loadImage(src){
+  return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; });
+}
+async function loadModels(){
+  const A = window.PP_ASSETS;
+  // CAT (FBX). The file points at a texture on someone else's computer,
+  // so we hand the loader a blank pixel and add our own texture later.
+  const blank = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
+  const mgr = new THREE.LoadingManager(); mgr.setURLModifier(()=>blank);
+  const fbx = new THREE.FBXLoader(mgr).parse(b64ToBuffer(A.cat), '');
+  let catMesh; fbx.traverse(o=>{ if(o.isMesh) catMesh=o; });
+  M.catGeo = rigCatGeometry(catMesh.geometry);
+  M.catImg = await loadImage('data:image/jpeg;base64,'+A.catTex);
+  // DOG (GLB with its own skeleton + idle animation)
+  M.dog = await new Promise((res,rej)=> new THREE.GLTFLoader().parse(b64ToBuffer(A.dog), '', res, rej));
+  M.dog.scene.traverse(o=>{ if(o.isSkinnedMesh){ M.dogImg = o.material.map.image; o.frustumCulled=false; } });
+  M.ready = true;
+}
+
+/* ---------------------------------------------------------
+   The cat model has no skeleton, so we build one ourselves:
+   every vertex gets "weights" that say which bone moves it
+   (body, head, 4 tail bones, 4 legs). Done once at load.
+   Model units: cat is about 37 tall, nose points to +Z.
+   --------------------------------------------------------- */
+const CAT_BONES = {      // bone positions in the cat's own space
+  root:[0,0,0], body:[0,15,0], head:[0,24,14],
+  t0:[0,24,-20], t1:[0,21,-27], t2:[0,18,-34], t3:[0,15,-41],
+  fl:[-6,9,15], fr:[6,9,15], bl:[-6,9,-14], br:[6,9,-14]
+};
+const CAT_ORDER = ['root','body','head','t0','t1','t2','t3','fl','fr','bl','br'];
+function rigCatGeometry(srcGeo){
+  const geo = srcGeo.clone();
+  const pos = geo.attributes.position, n = pos.count;
+  const idx = new Uint16Array(n*4), wts = new Float32Array(n*4);
+  const B = name => CAT_ORDER.indexOf(name);
+  for(let i=0;i<n;i++){
+    const x=pos.getX(i), y=pos.getY(i), z=pos.getZ(i);
+    const list = [];  // [boneIndex, weight]
+    // tail: thin part sticking out the back
+    const tail = (Math.abs(x)<4.5 && y>8) ? smooth(-19,-23,z) : 0;
+    if(tail>0){
+      const s = clamp((-z-21)/23.6, 0, 1) * 3, k = Math.min(Math.floor(s), 2), f = s-k;
+      list.push([B('body'),1-tail],[B('t'+k),tail*(1-f)],[B('t'+(k+1)),tail*f]);
+    } else {
+      const head = smooth(9,17,z) * smooth(14,22,y);
+      const front = z>0;
+      const legOK = front ? Math.abs(z-15)<7 : Math.abs(z+13.5)<7;
+      const leg = legOK ? smooth(9,4,y)*(1-head) : 0;
+      const legBone = (front ? 'f' : 'b') + (x<0 ? 'l' : 'r');
+      list.push([B('body'),1-head-leg],[B('head'),head],[B(legBone),leg]);
+    }
+    for(let j=0;j<4;j++){ const e=list[j]; idx[i*4+j]=e?e[0]:0; wts[i*4+j]=e?Math.max(0,e[1]):0; }
+    const sum = wts[i*4]+wts[i*4+1]+wts[i*4+2]+wts[i*4+3] || 1;
+    for(let j=0;j<4;j++) wts[i*4+j]/=sum;
+  }
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(idx,4));
+  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(wts,4));
+  return geo;
+}
+
+/* ---------------------------------------------------------
+   RECOLOR: turns the fur in a texture into a new color but
+   keeps the fur detail (and keeps eyes and nose the same).
+   --------------------------------------------------------- */
+const texCache = {};
+function furTexture(species, color, elder){
+  const key = species+color+(elder?'e':'');
+  if(texCache[key]) return texCache[key];
+  const img = species==='cat' ? M.catImg : M.dogImg;
+  const c = document.createElement('canvas'); c.width=img.width; c.height=img.height;
+  const g = c.getContext('2d'); g.drawImage(img,0,0);
+  const data = g.getImageData(0,0,c.width,c.height), d = data.data;
+  const target = color==='orig' ? null : [parseInt(color.slice(1,3),16),parseInt(color.slice(3,5),16),parseInt(color.slice(5,7),16)];
+  // which pixels are "fur"? dog fur is golden, cat fur is gray-brown
+  const furMask = (r,g2,b) => {
+    const mx=Math.max(r,g2,b), mn=Math.min(r,g2,b), sat=(mx-mn)/(mx+1), lum=.3*r+.59*g2+.11*b;
+    return species==='dog' ? smooth(.16,.3,sat)*smooth(35,70,lum) : (1-smooth(.3,.45,sat))*smooth(10,30,lum);
+  };
+  // pass 1: average fur brightness
+  let sum=0, cnt=0;
+  for(let i=0;i<d.length;i+=64){ const m=furMask(d[i],d[i+1],d[i+2]); if(m>.5){ sum+=.3*d[i]+.59*d[i+1]+.11*d[i+2]; cnt++; } }
+  const avg = sum/(cnt||1);
+  // pass 2: paint
+  for(let i=0;i<d.length;i+=4){
+    let r=d[i], g2=d[i+1], b=d[i+2];
+    const lum=.3*r+.59*g2+.11*b, m=furMask(r,g2,b);
+    if(target && m>0){
+      const k = Math.pow(lum/avg, 1.1);
+      r = lerp(r, Math.min(255,target[0]*k), m); g2 = lerp(g2, Math.min(255,target[1]*k), m); b = lerp(b, Math.min(255,target[2]*k), m);
+    }
+    if(elder && m>0){ const l=.3*r+.59*g2+.11*b; r=lerp(r,l+30,.3*m); g2=lerp(g2,l+30,.3*m); b=lerp(b,l+30,.3*m); }  // a little gray fur
+    d[i]=r; d[i+1]=g2; d[i+2]=b;
+  }
+  g.putImageData(data,0,0);
+  const tex = new THREE.CanvasTexture(c);
+  tex.encoding = THREE.sRGBEncoding;
+  tex.flipY = species==='cat';         // GLB textures are not flipped, FBX ones are
+  tex.anisotropy = 4;
+  return texCache[key] = tex;
+}
+
+/* ---------------------------------------------------------
+   BONE HELPERS
+   We rotate bones around "model" axes (X = nod, Y = turn,
+   Z = tilt) no matter how each bone is oriented inside.
+   --------------------------------------------------------- */
+const AX = { X:new THREE.Vector3(1,0,0), Y:new THREE.Vector3(0,1,0), Z:new THREE.Vector3(0,0,1) };
+const _q = new THREE.Quaternion(), _v = new THREE.Vector3();
+function prepBones(model, bones){
+  model.updateMatrixWorld(true);
+  const modelInv = new THREE.Quaternion(); model.getWorldQuaternion(modelInv); modelInv.invert();
+  bones.forEach(b=>{
+    if(!b) return;
+    const wq = new THREE.Quaternion(); b.getWorldQuaternion(wq);
+    b.userData.toLocal = wq.premultiply(modelInv).invert();   // model axis -> bone axis
+    b.userData.rest = b.quaternion.clone();
+    b.userData.restScale = b.scale.clone();
+  });
+}
+function turn(bone, axis, angle){
+  if(!bone || !angle) return;
+  _v.copy(axis).applyQuaternion(bone.userData.toLocal);
+  bone.quaternion.multiply(_q.setFromAxisAngle(_v, angle));
+}
+
+/* ---------------------------------------------------------
+   SPRING PHYSICS ("jiggle") for hair, ears and antennae.
+   A tip point chases where it "should" be with a spring,
+   so it lags, swings and bounces when the pet moves.
+   --------------------------------------------------------- */
+class Jiggle {
+  constructor(pivot, dir, len, opts={}){
+    this.pivot = pivot;                         // Object3D that gets rotated
+    this.dir = dir.clone().normalize();         // rest direction in pivot-parent space
+    this.len = len;
+    this.k = opts.k ?? 120;  this.damp = opts.damp ?? 9;  this.grav = opts.grav ?? 2.5;
+    this.p = null; this.v = new THREE.Vector3();
+  }
+  restTip(){
+    const par = this.pivot.parent;
+    return _v.copy(this.dir).multiplyScalar(this.len).add(this.pivot.position).applyMatrix4(par.matrixWorld).clone();
+  }
+  update(dt){
+    const target = this.restTip();
+    if(!this.p){ this.p = target.clone(); }
+    const steps = 3, h = dt/steps;
+    for(let s=0;s<steps;s++){
+      const acc = target.clone().sub(this.p).multiplyScalar(this.k).addScaledVector(this.v,-this.damp);
+      acc.y -= this.grav;
+      this.v.addScaledVector(acc,h); this.p.addScaledVector(this.v,h);
+    }
+    // keep length (rope, not rubber band)
+    const base = this.pivot.getWorldPosition(new THREE.Vector3());
+    const off = this.p.clone().sub(base); off.setLength(this.len); this.p.copy(base).add(off);
+    // point the pivot at the tip, in parent space
+    const parInv = new THREE.Matrix4().copy(this.pivot.parent.matrixWorld).invert();
+    const local = this.p.clone().applyMatrix4(parInv).sub(this.pivot.position).normalize();
+    this.pivot.quaternion.setFromUnitVectors(this.dir, local);
+    this.pivot.updateMatrixWorld(true);
+  }
+}
+
+/* ---------------------------------------------------------
+   TOON MATERIALS + OUTLINES for the human and custom pets
+   (chunky pop look: flat shading and thick dark outlines)
+   --------------------------------------------------------- */
+let toonRamp = null;
+function toonMat(color, map){
+  if(!toonRamp){
+    toonRamp = new THREE.DataTexture(new Uint8Array([110,190,255]),3,1,THREE.RedFormat);
+    toonRamp.minFilter = toonRamp.magFilter = THREE.NearestFilter; toonRamp.needsUpdate = true;
+  }
+  // colors are picked in sRGB, the renderer works in linear, so convert
+  const m = new THREE.MeshToonMaterial({ color:new THREE.Color(color).convertSRGBToLinear(), gradientMap:toonRamp });
+  if(map){ m.map = map; m.color.set('#ffffff'); }
+  return m;
+}
+const outlineMat = new THREE.MeshBasicMaterial({ color:0x120f2b, side:THREE.BackSide });
+function part(geo, mat, parent, outline=0.03){
+  const mesh = new THREE.Mesh(geo, mat);
+  if(outline){                      // inverted hull outline
+    const o = new THREE.Mesh(geo, outlineMat);
+    o.scale.setScalar(1 + outline / Math.max(.05, geo.boundingSphere ? geo.boundingSphere.radius : (geo.computeBoundingSphere(), geo.boundingSphere.radius)));
+    mesh.add(o);
+  }
+  if(parent) parent.add(mesh);
+  return mesh;
+}
+
+/* ---------------------------------------------------------
+   FACES for human and custom pets (drawn on a canvas that
+   wraps around the head sphere; front of head = x 25%).
+   --------------------------------------------------------- */
+function drawFace(canvas, skin, mood, opts={}){
+  const g = canvas.getContext('2d'), W = canvas.width, H = canvas.height;
+  g.fillStyle = skin; g.fillRect(0,0,W,H);
+  const cx = W*.25, cy = H*.5, s = W/512;      // s = size multiplier
+  if(mood==='hurt'){ g.fillStyle='rgba(255,40,60,.22)'; g.fillRect(0,0,W,H); }
+  if(mood==='hungry'){ g.fillStyle='rgba(120,255,60,.16)'; g.fillRect(0,0,W,H); }
+  const O='#120f2b';
+  g.lineCap='round'; g.lineJoin='round'; g.strokeStyle=O; g.fillStyle=O;
+  const ex = (opts.eyeGap||24)*s, ey = cy - (opts.eyeUp||8)*s, er = (opts.eyeSize||7)*s;
+  // cheeks
+  g.globalAlpha=.5; g.fillStyle = mood==='hurt'?'#ff2a3d':mood==='hungry'?'#7dd34a':'#ff6fa8';
+  g.beginPath(); g.arc(cx-ex-10*s, cy+8*s, 7*s, 0, 7); g.arc(cx+ex+10*s, cy+8*s, 7*s, 0, 7); g.fill();
+  g.globalAlpha=1; g.fillStyle=O; g.lineWidth=4*s;
+  const eyes = opts.three ? [-ex,0,ex] : [-ex,ex];
+  eyes.forEach((dx,i)=>{
+    const x = cx+dx, y = ey - (opts.three && i===1 ? 12*s : 0);
+    g.beginPath();
+    switch(mood){
+      case 'happy': g.arc(x, y+3*s, er, Math.PI*1.1, Math.PI*1.9); g.stroke(); break;
+      case 'sleep': g.arc(x, y-2*s, er, Math.PI*.1, Math.PI*.9); g.stroke(); break;
+      case 'hurt':  { const d = dx<0?1:-1; g.moveTo(x-d*er,y-er); g.lineTo(x+d*er,y); g.lineTo(x-d*er,y+er); g.stroke(); break; }
+      case 'hungry':g.fillStyle='#fff'; g.arc(x,y,er*1.2,0,7); g.fill(); g.stroke(); g.fillStyle=O; g.beginPath(); g.arc(x,y,er*.45,0,7); g.fill(); break;
+      case 'meh':   g.arc(x,y+2*s,er,0,Math.PI); g.fill(); g.beginPath(); g.moveTo(x-er-2*s,y+2*s); g.lineTo(x+er+2*s,y+2*s); g.stroke(); break;
+      default:      g.arc(x,y,er,0,7); g.fill(); g.fillStyle='#fff'; g.beginPath(); g.arc(x+er*.35,y-er*.35,er*.35,0,7); g.fill(); g.fillStyle=O;
+    }
+  });
+  if(opts.lashes && mood!=='hurt'){ g.lineWidth=3*s; [-ex,ex].forEach(dx=>{ const x=cx+dx+(dx<0?-er:er); g.beginPath(); g.moveTo(x,ey-2*s); g.lineTo(x+(dx<0?-5:5)*s,ey-7*s); g.stroke(); }); }
+  if(mood==='sad'){
+    g.lineWidth=3*s; g.beginPath(); g.moveTo(cx-ex-9*s,ey-10*s); g.lineTo(cx-ex+7*s,ey-15*s); g.moveTo(cx+ex+9*s,ey-10*s); g.lineTo(cx+ex-7*s,ey-15*s); g.stroke();
+    g.fillStyle='#6fd8ff'; g.beginPath(); g.ellipse(cx-ex+2*s, ey+14*s, 3.5*s, 6*s, 0, 0, 7); g.fill(); g.fillStyle=O;
+  }
+  // mouth
+  const my = cy + 18*s; g.lineWidth=4*s; g.beginPath();
+  switch(mood){
+    case 'happy': g.fillStyle='#ff5b8a'; g.moveTo(cx-12*s,my-4*s); g.quadraticCurveTo(cx,my+16*s,cx+12*s,my-4*s); g.closePath(); g.fill(); g.stroke(); break;
+    case 'meh':   g.moveTo(cx-9*s,my); g.lineTo(cx+9*s,my); g.stroke(); break;
+    case 'sad':   g.moveTo(cx-10*s,my+5*s); g.quadraticCurveTo(cx,my-7*s,cx+10*s,my+5*s); g.stroke(); break;
+    case 'hungry':g.moveTo(cx-12*s,my); for(let k=0;k<4;k++) g.quadraticCurveTo(cx-9*s+k*6*s, my+(k%2?4:-4)*s, cx-6*s+k*6*s, my); g.stroke(); break;
+    case 'hurt':  g.fillStyle='#5a1430'; g.ellipse(cx,my,5*s,7*s,0,0,7); g.fill(); g.stroke(); break;
+    case 'sleep': g.fillStyle='#5a1430'; g.ellipse(cx,my,4*s,3*s,0,0,7); g.fill(); break;
+    default:      g.moveTo(cx-9*s,my-2*s); g.quadraticCurveTo(cx,my+6*s,cx+9*s,my-2*s); g.stroke();
+  }
+}
+
+/* =========================================================
+   FILE STORAGE for uploaded models, pictures and backgrounds
+   Mac app: files are saved in ~/Library/Application Support/PocketPal/assets
+   Browser: files are saved in IndexedDB (or memory if that is blocked)
+   ========================================================= */
+const BRIDGE = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.pp;
+const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
+function bufToB64(buf){
+  const u = new Uint8Array(buf); let s = '';
+  for(let i=0;i<u.length;i+=0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i+0x8000));
+  return btoa(s);
+}
+const safeKey = s => String(s).toLowerCase().replace(/[^a-z0-9._-]/g,'_').slice(0,90);
+const baseName = u => { try{ u = decodeURIComponent(u); }catch(e){} return u.split(/[\\/]/).pop().split('?')[0].toLowerCase(); };
+const extOf = n => n.split('.').pop().toLowerCase();
+const Store = {
+  mem:{}, waiting:{}, n:0, dbp:null,
+  db(){
+    if(!this.dbp) this.dbp = new Promise((res,rej)=>{
+      try{ const r = indexedDB.open('pocketpal', 1);
+        r.onupgradeneeded = ()=> r.result.createObjectStore('files');
+        r.onsuccess = ()=> res(r.result); r.onerror = ()=> rej(r.error);
+      }catch(e){ rej(e); }
+    });
+    return this.dbp;
+  },
+  async put(key, buf){
+    this.mem[key] = buf;
+    if(BRIDGE){ BRIDGE.postMessage({ cmd:'put', key, b64:bufToB64(buf) }); return; }
+    try{ const db = await this.db();
+      await new Promise((res,rej)=>{ const t = db.transaction('files','readwrite'); t.objectStore('files').put(buf, key); t.oncomplete = res; t.onerror = ()=> rej(t.error); });
+    }catch(e){ /* memory only */ }
+  },
+  async get(key){
+    if(this.mem[key]) return this.mem[key];
+    let buf = null;
+    if(BRIDGE) buf = await new Promise(res=>{ const id = ++this.n; this.waiting[id] = res; BRIDGE.postMessage({ cmd:'get', key, id }); });
+    else try{ const db = await this.db();
+      buf = await new Promise(res=>{ const r = db.transaction('files').objectStore('files').get(key); r.onsuccess = ()=> res(r.result || null); r.onerror = ()=> res(null); });
+    }catch(e){}
+    if(buf) this.mem[key] = buf;
+    return buf;
+  },
+  del(key){
+    delete this.mem[key];
+    if(BRIDGE){ BRIDGE.postMessage({ cmd:'del', key }); return; }
+    this.db().then(db=>db.transaction('files','readwrite').objectStore('files').delete(key)).catch(()=>{});
+  }
+};
+// the Mac app answers Store.get() by calling this
+window.__ppGot = (id, b64) => { const f = Store.waiting[id]; delete Store.waiting[id]; if(f) f(b64 ? b64ToBuffer(b64) : null); };
+async function blobURL(key){ const b = await Store.get(key); return b ? URL.createObjectURL(new Blob([b])) : null; }
+
+/* =========================================================
+   CUSTOM CHARACTERS (uploaded by the player)
+   A "def" says which files make up a character and how to show it:
+   { id, label, files:{name:storageKey}, main, mainType, tex, bg,
+     scale, rot, y, anims:{idle,walk,happy,sleep}, rev }
+   ========================================================= */
+let customs = [];          // saved characters
+let cEdit = null;          // the character being made on the upload screen
+const modelCache = {};
+function getDef(id){ return (cEdit && cEdit.id===id) ? cEdit : customs.find(c=>c.id===id); }
+function speciesLabel(p){ return p.species==='upload' ? ((getDef(p.customId)||{}).label || 'Custom') : SPECIES[p.species].label; }
+async function fileBuf(def, name){ return (def.bufs && def.bufs[name]) || (def.files[name] ? Store.get(def.files[name]) : null); }
+
+// opens the model file (and any textures / .bin files that came with it)
+function loadCustomModel(def){
+  const key = def.id + ':' + def.rev;
+  if(modelCache[key]) return modelCache[key];
+  return modelCache[key] = (async ()=>{
+    if(!def.main) throw new Error('No 3D model was uploaded.');
+    const urls = {};
+    for(const n of Object.keys(def.files)){ const b = await fileBuf(def, n); if(b) urls[n] = URL.createObjectURL(new Blob([b])); }
+    const buf = await fileBuf(def, def.main);
+    if(!buf) throw new Error('The model file is missing.');
+    // when the model asks for "fur.png" or "scene.bin", hand it the uploaded file
+    const mgr = new THREE.LoadingManager();
+    mgr.setURLModifier(u => (u.startsWith('data:') || u.startsWith('blob:')) ? u : (urls[baseName(u)] || BLANK_IMG));
+    const t = def.mainType;
+    if(t==='glb' || t==='gltf'){
+      const data = t==='glb' ? buf : new TextDecoder().decode(buf);
+      const g = await new Promise((res,rej)=> new THREE.GLTFLoader(mgr).parse(data, '', res, rej));
+      return { scene:g.scene, animations:g.animations||[], type:t };
+    }
+    if(t==='fbx'){ const o = new THREE.FBXLoader(mgr).parse(buf, ''); return { scene:o, animations:o.animations||[], type:t }; }
+    if(t==='obj'){ const o = new THREE.OBJLoader(mgr).parse(new TextDecoder().decode(buf)); return { scene:o, animations:[], type:t }; }
+    throw new Error('That model type is not supported.');
+  })();
+}
+async function loadSkin(def){
+  const b = await fileBuf(def, def.tex); if(!b) return null;
+  const url = URL.createObjectURL(new Blob([b]));
+  const tex = await new Promise(res=> new THREE.TextureLoader().load(url, res, undefined, ()=>res(null)));
+  if(!tex) return null;
+  tex.encoding = THREE.sRGBEncoding;
+  tex.flipY = !(def.mainType==='glb' || def.mainType==='gltf');   // glTF textures are not flipped
+  return tex;
+}
+// size of a model in world space. Skinned (rigged) meshes are measured from their
+// skeleton, because their raw mesh data can be a totally different size than what you see.
+function measureModel(model){
+  const box = new THREE.Box3(), v = new THREE.Vector3();
+  let skinned = false;
+  model.updateMatrixWorld(true);
+  model.traverse(o=>{
+    if(o.isSkinnedMesh){ skinned = true; o.skeleton.bones.forEach(b=> box.expandByPoint(b.getWorldPosition(v))); }
+    else if(o.isMesh) box.expandByObject(o, true);
+  });
+  if(skinned && !box.isEmpty()){                 // bones stop short of ears, noses and paws, so pad a little
+    const h = box.max.y - box.min.y; box.max.y += h*.08; box.min.y -= h*.02;
+  }
+  if(box.isEmpty()) box.setFromObject(model, true);
+  return box;
+}
+// picks an animation by its name, like "Idle" or "Walk_Cycle"
+function guessClip(names, words){ return names.find(n => words.test(n)) || ''; }
+
+/* =========================================================
+   ACCESSORIES (sold in the Pet Shop)
+   Each one is built at "head size 1" and scaled to fit the pet.
+   ========================================================= */
+const SLOTS = { head:'Hats', face:'Glasses', neck:'Neck', float:'Floaties' };
+const ACCS = [
+  { id:'party',   name:'Party Hat',     slot:'head',  price:8,  e:'🥳' },
+  { id:'crown',   name:'Royal Crown',   slot:'head',  price:20, e:'👑' },
+  { id:'tophat',  name:'Top Hat',       slot:'head',  price:15, e:'🎩' },
+  { id:'wizard',  name:'Wizard Hat',    slot:'head',  price:18, e:'🧙' },
+  { id:'beanie',  name:'Cozy Beanie',   slot:'head',  price:10, e:'🧶' },
+  { id:'flower',  name:'Flower Clip',   slot:'head',  price:6,  e:'🌸' },
+  { id:'shades',  name:'Cool Shades',   slot:'face',  price:12, e:'🕶️' },
+  { id:'hearts',  name:'Heart Glasses', slot:'face',  price:12, e:'💕' },
+  { id:'bowtie',  name:'Bow Tie',       slot:'neck',  price:8,  e:'🎀' },
+  { id:'bell',    name:'Bell Collar',   slot:'neck',  price:10, e:'🔔' },
+  { id:'scarf',   name:'Comfy Scarf',   slot:'neck',  price:12, e:'🧣' },
+  { id:'halo',    name:'Halo',          slot:'float', price:25, e:'😇' },
+  { id:'balloon', name:'Balloon',       slot:'float', price:6,  e:'🎈' },
+  { id:'stars',   name:'Star Swirl',    slot:'float', price:22, e:'✨' }
+];
+const BGS = [
+  { id:'rooftop', name:'Moonlit Rooftop', e:'🏙️' },
+  { id:'yard',    name:'Backyard',        e:'🌳' },
+  { id:'bedroom', name:'Cozy Bedroom',    e:'🛏️' },
+  { id:'space',   name:'Space Island',    e:'🪐' }
+];
+const POTIONS = [
+  { id:'joy',     name:'Joy Potion',     price:6,  e:'💗', note:'+40 happiness' },
+  { id:'belly',   name:'Full Belly',     price:6,  e:'🥣', note:'+50 food' },
+  { id:'heal',    name:'Health Potion',  price:8,  e:'❤️‍🩹', note:'+60 health' },
+  { id:'grow',    name:'Grow-Up Potion', price:15, e:'🌱', note:'One age older' },
+  { id:'young',   name:'Youth Potion',   price:15, e:'🍼', note:'One age younger' },
+  { id:'rainbow', name:'Rainbow Potion', price:10, e:'🌈', note:'Random new color' }
+];
+const AGE_ORDER = ['baby','kid','teen','adult','elder'];
+
+// 2D shapes used by some accessories
+function heartShape(r){ const s = new THREE.Shape(); s.moveTo(0,-r); s.bezierCurveTo(r*1.6,-r*.1, r*.9,r*1.1, 0,r*.45); s.bezierCurveTo(-r*.9,r*1.1, -r*1.6,-r*.1, 0,-r); return s; }
+function starShape(r){ const s = new THREE.Shape(); for(let i=0;i<10;i++){ const a = i/10*Math.PI*2 + Math.PI/2, rr = i%2 ? r*.45 : r; i ? s.lineTo(Math.cos(a)*rr, Math.sin(a)*rr) : s.moveTo(Math.cos(a)*rr, Math.sin(a)*rr); } return s; }
+const flat = (shape, d=.04) => { const g = new THREE.ExtrudeGeometry(shape, { depth:d, bevelEnabled:false }); g.center(); return g; };
+
+// builds one accessory. Returns { group, anim } (anim = how it moves on its own)
+function buildAcc(id){
+  const g = new THREE.Group(), T = c => toonMat(c), O = .025;
+  let anim = null;
+  const add = (geo, mat, x=0, y=0, z=0, outline=O) => { const m = part(geo, mat, g, outline); m.position.set(x,y,z); return m; };
+  if(id==='party'){
+    const c = add(new THREE.ConeGeometry(.22,.5,28), T('#ff4fa3'), 0,.24,0); c.rotation.z = -.15;
+    add(new THREE.SphereGeometry(.07,14,10), T('#ffd23f'), .07,.49,0);
+    [.08,.2,.32].forEach((y,i)=>{ const b = add(new THREE.TorusGeometry(.2-y*.4,.018,6,24), T(i%2?'#3ee8ff':'#ffd23f'), y*.12,y-.02,0,0); b.rotation.x = Math.PI/2; b.rotation.y = -.15; });
+  }
+  if(id==='crown'){
+    const gold = T('#ffd23f'); gold.side = THREE.DoubleSide;
+    add(new THREE.CylinderGeometry(.27,.25,.16,28,1,true), gold, 0,.07,0);
+    for(let i=0;i<6;i++){ const a = i/6*Math.PI*2; add(new THREE.ConeGeometry(.055,.14,10), gold, Math.sin(a)*.26,.21,Math.cos(a)*.26); }
+    add(new THREE.SphereGeometry(.045,12,10), T('#ff4d5e'), 0,.07,.27, .012);
+    add(new THREE.SphereGeometry(.035,12,10), T('#3ee8ff'), .19,.07,.19, .012);
+    add(new THREE.SphereGeometry(.035,12,10), T('#5cff8a'), -.19,.07,.19, .012);
+  }
+  if(id==='tophat'){
+    add(new THREE.CylinderGeometry(.2,.2,.36,28), T('#1e1a33'), 0,.2,0);
+    add(new THREE.CylinderGeometry(.34,.34,.03,32), T('#1e1a33'), 0,.02,0);
+    add(new THREE.CylinderGeometry(.205,.205,.07,28), T('#ff4fa3'), 0,.08,0, 0);
+  }
+  if(id==='wizard'){
+    const c = add(new THREE.ConeGeometry(.28,.66,28), T('#7a4fe0'), 0,.33,0); c.rotation.z = .2;
+    add(new THREE.CylinderGeometry(.42,.42,.025,32), T('#7a4fe0'), 0,.01,0);
+    const st = add(flat(starShape(.08)), T('#ffd23f'), .1,.3,.2, .01); st.rotation.y = .4;
+  }
+  if(id==='beanie'){
+    const dome = add(new THREE.SphereGeometry(.36,28,14,0,Math.PI*2,0,Math.PI/2), T('#ff6b4a'), 0,-.1,0);
+    dome.scale.y = .85;
+    const cuff = add(new THREE.TorusGeometry(.36,.05,10,28), T('#ffd23f'), 0,-.08,0, .015); cuff.rotation.x = Math.PI/2;
+    add(new THREE.SphereGeometry(.09,14,10), T('#fff7ec'), 0,.24,0);
+  }
+  if(id==='flower'){
+    const pink = T('#ff8fc8');
+    for(let i=0;i<6;i++){ const a = i/6*Math.PI*2; add(new THREE.SphereGeometry(.07,12,10), pink, .3+Math.cos(a)*.08, -.02+Math.sin(a)*.08, .05, .015); }
+    add(new THREE.SphereGeometry(.06,12,10), T('#ffd23f'), .3,-.02,.1, .012);
+  }
+  if(id==='shades'){
+    const dark = T('#16132e');
+    [-1,1].forEach(sx=>{ const l = add(new THREE.CylinderGeometry(.13,.13,.03,24), dark, sx*.17,0,.02, .015); l.rotation.x = Math.PI/2; l.scale.z = .8; });
+    add(new THREE.BoxGeometry(.12,.025,.025), dark, 0,.03,.02, 0);
+    [-1,1].forEach(sx=> add(new THREE.BoxGeometry(.025,.025,.3), dark, sx*.3,.02,-.13, 0));
+  }
+  if(id==='hearts'){
+    const red = T('#ff4d5e');
+    [-1,1].forEach(sx=> add(flat(heartShape(.13),.03), red, sx*.17,0,.02, .015));
+    add(new THREE.BoxGeometry(.1,.025,.025), red, 0,.02,.02, 0);
+    [-1,1].forEach(sx=> add(new THREE.BoxGeometry(.025,.025,.3), red, sx*.3,.02,-.13, 0));
+  }
+  if(id==='bowtie'){
+    const red = T('#ff4d5e');
+    [-1,1].forEach(sx=>{ const c = add(new THREE.ConeGeometry(.1,.17,4), red, sx*.09,0,0, .015); c.rotation.z = sx*Math.PI/2; });
+    add(new THREE.SphereGeometry(.05,12,10), red, 0,0,.02, .012);
+  }
+  if(id==='bell'){
+    const band = add(new THREE.TorusGeometry(.34,.035,10,32), T('#ff4d5e'), 0,0,-.32, .012); band.rotation.x = Math.PI/2;
+    add(new THREE.SphereGeometry(.07,14,10), T('#ffd23f'), 0,-.06,.02, .012);
+  }
+  if(id==='scarf'){
+    const c = T('#3ee8ff');
+    const band = add(new THREE.TorusGeometry(.33,.075,12,32), c, 0,0,-.3, .015); band.rotation.x = Math.PI/2;
+    const tail = add(new THREE.BoxGeometry(.12,.3,.05), c, .12,-.15,.02, .015); tail.rotation.z = .2;
+    add(new THREE.BoxGeometry(.13,.04,.06), T('#ff4fa3'), .14,-.26,.02, 0).rotation.z = .2;
+  }
+  if(id==='halo'){
+    const m = new THREE.MeshBasicMaterial({ color:0xffe27a });
+    const r = add(new THREE.TorusGeometry(.24,.035,10,32), m, 0,.3,0, .012); r.rotation.x = Math.PI/2;
+    anim = 'bob';
+  }
+  if(id==='balloon'){
+    add(new THREE.SphereGeometry(.2,20,16), T('#ff4d5e'), .5,.5,0).scale.y = 1.15;
+    add(new THREE.ConeGeometry(.04,.06,8), T('#ff4d5e'), .5,.26,0, .01).rotation.z = Math.PI;
+    const str = new THREE.Mesh(new THREE.CylinderGeometry(.006,.006,.5,6), new THREE.MeshBasicMaterial({ color:0xfff7ec }));
+    str.position.set(.38,.02,0); str.rotation.z = .5; g.add(str);
+    anim = 'sway';
+  }
+  if(id==='stars'){
+    const gold = new THREE.MeshBasicMaterial({ color:0xffd23f });
+    for(let i=0;i<4;i++){ const a = i/4*Math.PI*2; const st = add(flat(starShape(.07)), gold, Math.cos(a)*.45, .15+(i%2)*.1, Math.sin(a)*.45, .01); st.rotation.y = -a; }
+    anim = 'spin';
+  }
+  return { group:g, anim };
+}
+
+/* =========================================================
+   PET ACTOR: builds one 3D pet and animates it every frame
+   ========================================================= */
+class PetActor {
+  constructor(p){
+    this.p = p;
+    this.root = new THREE.Group();     // moves around the scene (walk, hop)
+    this.inner = new THREE.Group();    // holds the model (age scale, lying down)
+    this.root.add(this.inner);
+    this.mats = [];                    // materials we tint when sick
+    this.jiggles = [];
+    this.mood = 'happy'; this.sleeping = false;
+    this.pose = { headPitch:0, headYaw:0, headRoll:0, wagAmp:.3, wagFreq:6, tailLift:0, legAmp:0, legPhase:0, breathe:0, lie:0, wobble:0, armUp:0 };
+    this.st = { x:0, targetX:null, face:.45, wanderIn:3+Math.random()*4, action:null, actionT:0, hop:0, spin:0 };
+    this.time = 0;
+    this.anchors = {};                 // where accessories attach (head, face, neck, float)
+    this.accAnims = [];
+    this['build_'+p.species]();
+    if(p.species!=='upload') this.buildAccessories();   // uploads add theirs once the model loads
+    // invisible box used for clicking the pet
+    this.hit = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshBasicMaterial({visible:false}));
+    this.hit.scale.set(this.size.w, this.size.h, this.size.w);
+    this.hit.position.y = this.size.h/2;
+    this.root.add(this.hit);
+  }
+
+  /* ---------- CAT (uses the provided model + our home made rig) ---------- */
+  build_cat(){
+    const p = this.p;
+    const mat = new THREE.MeshStandardMaterial({ map:furTexture('cat', p.color||'orig', p.age==='elder'), roughness:.85, metalness:0 });
+    const mesh = new THREE.SkinnedMesh(M.catGeo, mat);
+    mesh.frustumCulled = false;
+    const bones = {};
+    CAT_ORDER.forEach(n => bones[n] = new THREE.Bone());
+    const parentOf = { body:'root', head:'body', t0:'body', t1:'t0', t2:'t1', t3:'t2', fl:'body', fr:'body', bl:'body', br:'body' };
+    CAT_ORDER.forEach(n=>{
+      const b=bones[n], pp=parentOf[n], w=CAT_BONES[n], pw = pp ? CAT_BONES[pp] : [0,0,0];
+      b.position.set(w[0]-pw[0], w[1]-pw[1], w[2]-pw[2]);
+      if(pp) bones[pp].add(b);
+    });
+    mesh.add(bones.root); mesh.updateMatrixWorld(true);
+    mesh.bind(new THREE.Skeleton(CAT_ORDER.map(n=>bones[n])));
+    const s = 1/37.5 * 1.0;                  // make the cat about 1 unit tall
+    mesh.scale.setScalar(s);
+    this.inner.add(mesh);
+    this.mesh = mesh; this.bones = bones; this.mats.push(mat);
+    prepBones(mesh, Object.values(bones));
+    this.tail = [bones.t0,bones.t1,bones.t2,bones.t3];
+    this.legs = { fl:bones.fl, fr:bones.fr, bl:bones.bl, br:bones.br };
+    this.head = bones.head; this.body = bones.body;
+    this.tailBig = p.gender==='girl' ? 1.6 : 1;       // girls get a big fluffy tail
+    this.inner.scale.setScalar(AGES[p.age||'adult'].scale);
+    this.size = { w:.6, h:1 };
+    // accessory spots, in the cat model's own units (cat is about 37 tall)
+    const H = CAT_BONES.head, cp = (x,y,z) => new THREE.Vector3(x-H[0], y-H[1], z-H[2]);
+    this.anchors = {
+      head: { parent:bones.head, pos:cp(1,32.6,17.5), size:19 },
+      face: { parent:bones.head, pos:cp(.5,25.3,27.6), size:15 },
+      neck: { parent:bones.head, pos:cp(.5,18.6,22.5), size:17 },
+      float:{ parent:bones.head, pos:cp(1,43,17.5), size:19 }
+    };
+  }
+
+  /* ---------- DOG (uses the provided model, its skeleton and idle animation) ---------- */
+  build_dog(){
+    const p = this.p;
+    const model = THREE.SkeletonUtils.clone(M.dog.scene);
+    let mesh;
+    model.traverse(o=>{
+      if(o.isSkinnedMesh){
+        mesh = o; o.frustumCulled = false;
+        o.material = o.material.clone();
+        o.material.map = furTexture('dog', p.color||'orig', p.age==='elder');
+        o.material.emissiveMap = null; o.material.emissive.setRGB(0,0,0);
+        this.mats.push(o.material);
+      }
+    });
+    // size it: measure the skeleton (toes to ear tips)
+    model.updateMatrixWorld(true);
+    const box = new THREE.Box3(), v = new THREE.Vector3();
+    model.traverse(o=>{ if(o.isBone) box.expandByPoint(o.getWorldPosition(v)); });
+    const h = box.max.y - box.min.y, s = 0.9 / h;
+    model.scale.multiplyScalar(s);
+    model.position.set(-(box.min.x+box.max.x)/2*s, -box.min.y*s + .01, -(box.min.z+box.max.z)/2*s);
+    const turnG = new THREE.Group(); turnG.add(model); this.inner.add(turnG);
+    this.mixer = new THREE.AnimationMixer(model);
+    this.mixer.clipAction(M.dog.animations[0]).play();
+    this.mixer.update(0);                    // the idle animation turns the skeleton, so measure after it starts
+    const bone = n => model.getObjectByName(n);
+    // turn the dog so its nose points forward (+Z), then center it again
+    this.root.updateMatrixWorld(true);
+    const hip = bone('DogROOTSHJnt').getWorldPosition(new THREE.Vector3()), nose = bone('Dog_Neck_TopSHJnt').getWorldPosition(new THREE.Vector3());
+    turnG.rotation.y = -Math.atan2(nose.x-hip.x, nose.z-hip.z);
+    this.root.updateMatrixWorld(true);
+    const box2 = new THREE.Box3(); model.traverse(o=>{ if(o.isBone) box2.expandByPoint(o.getWorldPosition(new THREE.Vector3())); });
+    turnG.position.set(-(box2.min.x+box2.max.x)/2, 0, -(box2.min.z+box2.max.z)/2);
+    this.head = bone('Dog_Neck_TopSHJnt'); this.neck = bone('Dog_Neck_02SHJnt');
+    this.tail = ['Dog_Tail_01_02SHJnt','Dog_Tail_01_03SHJnt','Dog_Tail_01_04SHJnt','Dog_Tail_01_05SHJnt'].map(bone);
+    this.legs = { fl:bone('Dog_l_FrontLeg_HipSHJnt'), fr:bone('Dog_r_FrontLeg_HipSHJnt'), bl:bone('Dog_l_HindLeg_HipSHJnt'), br:bone('Dog_r_HindLeg_HipSHJnt') };
+    this.knees = { fl:bone('Dog_l_FrontLeg_KneeSHJnt'), fr:bone('Dog_r_FrontLeg_KneeSHJnt'), bl:bone('Dog_l_HindLeg_Knee1SHJnt'), br:bone('Dog_r_HindLeg_Knee1SHJnt') };
+    this.spine = bone('Dog_Spine_02SHJnt'); this.dogRoot = bone('DogROOTSHJnt');
+    prepBones(this.inner, [this.head,this.neck,this.spine,this.dogRoot,...this.tail,...Object.values(this.legs),...Object.values(this.knees)]);
+    this.tailBig = p.gender==='girl' ? 1.7 : 1;
+    this.inner.scale.setScalar(AGES[p.age||'adult'].scale);
+    this.size = { w:.7, h:.95 };
+    // accessory spots, measured from the dog's own bones
+    this.root.updateMatrixWorld(true);
+    const wp = n => bone(n).getWorldPosition(new THREE.Vector3());
+    const nt = wp('Dog_Neck_TopSHJnt'), jaw = wp('Dog_Head_JawSHJnt'), k = this.inner.scale.x;
+    const at = (base, x, y, z) => base.clone().add(new THREE.Vector3(x*k, y*k, z*k));
+    this.anchorWorld('head',  this.head, at(nt, 0,.09,.08), .34*k);
+    this.anchorWorld('face',  this.head, at(nt, 0,.025,.29), .3*k);
+    this.anchorWorld('neck',  this.head, at(jaw, 0,-.06,-.02), .3*k);
+    this.anchorWorld('float', this.head, at(nt, 0,.36,.08), .36*k);
+  }
+
+  /* ---------- HUMAN (built from shapes, with hair physics) ---------- */
+  build_human(){
+    const p = this.p, age = p.age||'adult';
+    // body proportions change with age
+    const P = {
+      baby: { head:.24, torso:.22, leg:.16, arm:.18, w:.22 },
+      kid:  { head:.21, torso:.27, leg:.25, arm:.25, w:.22 },
+      teen: { head:.19, torso:.32, leg:.34, arm:.3,  w:.23 },
+      adult:{ head:.18, torso:.36, leg:.38, arm:.34, w:.25 },
+      elder:{ head:.18, torso:.34, leg:.35, arm:.32, w:.26 }
+    }[age];
+    this.P = P;
+    const skin = p.color || '#f2c49b';
+    const hairC = age==='elder' ? '#d9d9e6' : (p.hair || HAIR[0]);
+    const shirt = p.shirt || SHIRTS[0];
+    const skinM = toonMat(skin), shirtM = toonMat(shirt), pantsM = toonMat('#2b2160'), shoeM = toonMat('#fff7ec'), hairM = toonMat(hairC);
+    this.mats.push(skinM, shirtM, hairM);
+
+    const body = new THREE.Group(); body.position.y = P.leg + .04; this.inner.add(body);  // hips
+    this.bodyG = body; this.hipY = body.position.y;
+    // legs
+    this.legs = {};
+    [['l',-1],['r',1]].forEach(([k,sx])=>{
+      const piv = new THREE.Group(); piv.position.set(sx*P.w*.42, 0, 0); body.add(piv);
+      const leg = part(new THREE.CapsuleGeometry(.07, P.leg-.07, 6, 12), p.gender==='girl' ? skinM : pantsM, piv); leg.position.y = -P.leg/2 + .01;   // girls show legs under the skirt
+      const shoe = part(new THREE.SphereGeometry(.085, 16, 12), shoeM, piv); shoe.scale.set(1,.6,1.4); shoe.position.set(0,-P.leg+.0,.03);
+      this.legs[k] = piv;
+    });
+    // skirt for girls: a flared cone around the hips, a shade darker than the shirt
+    if(p.gender==='girl'){
+      const skirtM = toonMat(new THREE.Color(shirt).multiplyScalar(.72).getStyle()); this.mats.push(skirtM);
+      const len = P.leg*.5;
+      const skirt = part(new THREE.CylinderGeometry(P.w*.6, P.w*.95, len, 24, 1), skirtM, body, .02);
+      skirt.position.y = -len/2 + .05;
+      this.skirt = skirt;
+    }
+    // torso
+    const torso = new THREE.Group(); body.add(torso); this.torso = torso;
+    const chest = part(new THREE.CapsuleGeometry(P.w*.62, P.torso*.45, 8, 16), shirtM, torso); chest.position.y = P.torso*.5; chest.scale.z = .75;
+    // arms
+    this.arms = {};
+    [['l',-1],['r',1]].forEach(([k,sx])=>{
+      const piv = new THREE.Group(); piv.position.set(sx*(P.w*.62+.05), P.torso*.85, 0); torso.add(piv);
+      const sleeve = part(new THREE.CapsuleGeometry(.058, P.arm*.35, 6, 10), shirtM, piv); sleeve.position.y = -P.arm*.25;
+      const arm = part(new THREE.CapsuleGeometry(.05, P.arm*.45, 6, 10), skinM, piv); arm.position.y = -P.arm*.6;
+      const hand = part(new THREE.SphereGeometry(.062,12,10), skinM, piv); hand.position.y = -P.arm*.95;
+      piv.rotation.z = sx*.12;
+      this.arms[k] = piv;
+    });
+    // head
+    const headPiv = new THREE.Group(); headPiv.position.y = P.torso + .03; torso.add(headPiv); this.headG = headPiv;
+    const neck = part(new THREE.CylinderGeometry(.035,.04,.08,10), skinM, headPiv, 0); neck.position.y = .02;
+    this.faceCanvas = document.createElement('canvas'); this.faceCanvas.width=512; this.faceCanvas.height=256;
+    this.faceSkin = skin;
+    this.faceTex = new THREE.CanvasTexture(this.faceCanvas); this.faceTex.encoding = THREE.sRGBEncoding;
+    this.faceOpts = { lashes:p.gender==='girl', eyeGap:22, eyeUp:6 };
+    drawFace(this.faceCanvas, skin, 'happy', this.faceOpts);
+    const headM = toonMat('#ffffff', this.faceTex); this.mats.push(headM);
+    const head = part(new THREE.SphereGeometry(P.head, 40, 28), headM, headPiv); head.position.y = P.head + .04;
+    const hc = head.position;
+    [-1,1].forEach(sx=>{ const ear = part(new THREE.SphereGeometry(P.head*.22,10,8), skinM, headPiv, .012); ear.position.set(sx*P.head*.98, hc.y, 0); ear.scale.z=.6; });
+    // hair cap (top of head, tilted back so the face shows)
+    const cap = part(new THREE.SphereGeometry(P.head*1.07, 32, 16, 0, Math.PI*2, 0, Math.PI*.52), hairM, headPiv);
+    cap.position.copy(hc); cap.rotation.x = -.5;
+    // hair pieces that use spring physics
+    const addStrand = (from, dir, segs, len, r, k, damp, grav) => {
+      let parent = headPiv, start = from;
+      for(let i=0;i<segs;i++){
+        const piv = new THREE.Group(); piv.position.copy(start); parent.add(piv);
+        const ball = part(new THREE.SphereGeometry(r*(1-i*.15),14,10), hairM, piv);
+        ball.position.copy(dir.clone().normalize().multiplyScalar(len*.6));
+        this.jiggles.push(new Jiggle(piv, dir, len, {k, damp, grav}));
+        parent = piv; start = dir.clone().normalize().multiplyScalar(len);
+      }
+    };
+    if(p.gender==='girl'){
+      // ponytail on the back of the head
+      addStrand(new THREE.Vector3(0, hc.y+P.head*.35, -P.head*.85), new THREE.Vector3(0,-.6,-1), 4, P.head*.38, P.head*.3, 160, 7, 1.5);
+      const tie = part(new THREE.TorusGeometry(P.head*.16,.012,8,16), toonMat('#ff4fa3'), headPiv, 0); tie.position.set(0,hc.y+P.head*.35,-P.head*.9);
+    } else if(p.gender==='boy'){
+      // short hair: just the hair cap, no extra pieces
+    } else {
+      // bun on top + a side curl
+      addStrand(new THREE.Vector3(0, hc.y+P.head*.95, -P.head*.15), new THREE.Vector3(0,1,-.2), 2, P.head*.22, P.head*.26, 220, 7, .8);
+      addStrand(new THREE.Vector3(P.head*.8, hc.y+P.head*.2, P.head*.35), new THREE.Vector3(.3,-1,0), 2, P.head*.2, P.head*.12, 140, 6, 1.2);
+    }
+    if(age==='elder'){
+      const gm = toonMat('#120f2b');
+      [-1,1].forEach(sx=>{ const g = new THREE.Mesh(new THREE.TorusGeometry(P.head*.2,.008,8,20), gm); g.position.set(sx*P.head*.32, hc.y+P.head*.05, P.head*.93); headPiv.add(g); });
+      this.hunch = .18;
+    }
+    this.size = { w:.5, h:P.leg+P.torso+P.head*2+.1 };
+    this.headTop = this.size.h;
+    const V = (x,y,z)=>new THREE.Vector3(x,y,z);
+    this.anchors = {
+      head: { parent:headPiv, pos:V(0, hc.y+P.head*1.0, 0), size:P.head*2.15 },
+      face: { parent:headPiv, pos:V(0, hc.y+P.head*.12, P.head*.9), size:P.head*1.9 },
+      neck: { parent:torso,   pos:V(0, P.torso*.86, P.w*.48), size:P.w*1.5 },
+      float:{ parent:headPiv, pos:V(0, hc.y+P.head*1.6, 0), size:P.head*2.1 }
+    };
+  }
+
+  /* ---------- CUSTOM (blob, bunny or alien, with springy ears / antennae) ---------- */
+  build_custom(){
+    const p = this.p, type = p.customType||'blob', col = p.color||'#6c7bff';
+    const bodyM = toonMat(col), footM = toonMat(new THREE.Color(col).multiplyScalar(.75));
+    this.mats.push(bodyM, footM);
+    const body = new THREE.Group(); body.position.y = .05; this.inner.add(body); this.bodyG = body; this.hipY = .05;
+    this.faceCanvas = document.createElement('canvas'); this.faceCanvas.width=512; this.faceCanvas.height=256;
+    this.faceSkin = col; this.faceOpts = { eyeGap:30, eyeUp:2, eyeSize:10, three:type==='alien' };
+    this.faceTex = new THREE.CanvasTexture(this.faceCanvas); this.faceTex.encoding = THREE.sRGBEncoding;
+    drawFace(this.faceCanvas, col, 'happy', this.faceOpts);
+    const faceM = toonMat('#ffffff', this.faceTex); this.mats.push(faceM);
+    const R = .33;
+    const blob = part(new THREE.SphereGeometry(R, 48, 32), faceM, body); blob.position.y = R; blob.scale.y = type==='blob' ? .9 : 1.05;
+    this.blob = blob;
+    this.legs = {};
+    [['l',-1],['r',1]].forEach(([k,sx])=>{
+      const piv = new THREE.Group(); piv.position.set(sx*R*.45, .06, 0); body.add(piv);
+      const f = part(new THREE.SphereGeometry(.08,14,10), footM, piv); f.scale.set(1,.6,1.3); f.position.set(0,-.03,.04);
+      this.legs[k] = piv;
+    });
+    this.arms = {};
+    [['l',-1],['r',1]].forEach(([k,sx])=>{
+      const piv = new THREE.Group(); piv.position.set(sx*R*.95, R*.85, 0); body.add(piv);
+      const a = part(new THREE.SphereGeometry(.07,12,10), footM, piv); a.scale.set(1,1.4,1); a.position.set(sx*.03,-.06,0);
+      piv.rotation.z = sx*.3; this.arms[k] = piv;
+    });
+    this.headG = body;   // whole blob nods a little
+    // a springy chain of capsules (bunny ears, alien antennae)
+    const spring = (pos, dir, segs, len, r, mat, k, damp, grav, tipMat) => {
+      let parent = body, start = pos;
+      const d = dir.clone().normalize();
+      for(let i=0;i<segs;i++){
+        const piv = new THREE.Group(); piv.position.copy(start); parent.add(piv);
+        const g = part(new THREE.CapsuleGeometry(r*(1-i*.12), len*.6, 6, 12), mat, piv, .018);
+        g.position.copy(d.clone().multiplyScalar(len*.5));
+        g.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), d);
+        if(type==='bunny') g.scale.z = .6;
+        if(tipMat && i===segs-1){ const ball = part(new THREE.SphereGeometry(r*2.6,14,10), tipMat, piv, .015); ball.position.copy(d.clone().multiplyScalar(len)); }
+        this.jiggles.push(new Jiggle(piv, d, len, {k, damp, grav}));
+        parent = piv; start = d.clone().multiplyScalar(len);
+      }
+    };
+    if(type==='bunny'){
+      [-1,1].forEach(sx=> spring(new THREE.Vector3(sx*R*.35, R*1.8, 0), new THREE.Vector3(sx*.25,1,0), 3, .11, .05, bodyM, 140, 6, .9));
+      const tail = part(new THREE.SphereGeometry(.08,12,10), toonMat('#ffffff'), body); tail.position.set(0,R*.6,-R);
+    }
+    if(type==='alien'){
+      [-1,1].forEach(sx=> spring(new THREE.Vector3(sx*R*.35, R*1.8, 0), new THREE.Vector3(sx*.4,1,0), 3, .07, .014, footM, 200, 5, .6, toonMat('#ffd23f')));
+    }
+    if(p.gender==='girl'){ const bow = part(new THREE.TorusKnotGeometry(.04,.015,40,8,2,3), toonMat('#ff4fa3'), body); bow.position.set(-R*.55, R*1.7, R*.2); }
+    if(p.gender==='boy'){ const cap = part(new THREE.SphereGeometry(R*.45,20,10,0,Math.PI*2,0,Math.PI*.5), toonMat('#3ee8ff'), body); cap.position.set(0,R*1.75,0); }
+    if(p.age==='elder'){ const gm = toonMat('#120f2b'); [-1,1].forEach(sx=>{ const g=new THREE.Mesh(new THREE.TorusGeometry(.06,.01,8,20), gm); g.position.set(sx*.1,R*1.06,R*.93); body.add(g); }); }
+    this.inner.scale.setScalar(AGES[p.age||'adult'].scale);
+    this.size = { w:.75, h:R*2.1 };
+    this.headTop = R*2.1;
+    const top = R*(1 + (type==='blob' ? .9 : 1.05)), V = (x,y,z)=>new THREE.Vector3(x,y,z);
+    this.anchors = {
+      head: { parent:body, pos:V(0, top-.02, 0), size:R*2.1 },
+      face: { parent:body, pos:V(0, R*1.02, R*.93), size:R*1.7 },
+      neck: { parent:body, pos:V(0, R*.42, R*.86), size:R*1.8 },
+      float:{ parent:body, pos:V(0, top+.15, 0), size:R*2 }
+    };
+  }
+
+  /* ---------- UPLOADED character (your own model) ---------- */
+  build_upload(){
+    const p = this.p, def = getDef(p.customId);
+    this.size = { w:.7, h:.9 }; this.headTop = .9;
+    this.inner.scale.setScalar(AGES[p.age||'adult'].scale);
+    this.holder = new THREE.Group(); this.inner.add(this.holder);     // squash and bob happen here (feet stay planted)
+    if(!def){ this.loadError = 'This custom pet is missing its files.'; return; }
+    loadCustomModel(def).then(res=>{ if(!this.disposed) return this.attachUpload(def, res); })
+      .catch(e=>{ console.error(e); this.loadError = 'Could not open that model: ' + (e && e.message || e); if(this.onError) this.onError(this.loadError); });
+  }
+  async attachUpload(def, res){
+    const p = this.p;
+    const model = THREE.SkeletonUtils.clone(res.scene);
+    const skin = def.tex ? await loadSkin(def) : null;
+    if(this.disposed) return;
+    const tint = p.color && p.color!=='orig' ? new THREE.Color(p.color).convertSRGBToLinear() : null;
+    model.traverse(o=>{
+      if(!o.isMesh) return;
+      o.frustumCulled = false; o.userData.keep = true;      // geometry is shared with the cache, don't throw it away
+      const fix = m => {
+        m = m.clone();
+        if(skin){ m.map = skin; if(m.color) m.color.set('#ffffff'); }
+        if(tint && m.color) m.color.multiply(tint);
+        m.needsUpdate = true; this.mats.push(m); return m;
+      };
+      o.material = Array.isArray(o.material) ? o.material.map(fix) : fix(o.material);
+    });
+    // fit: turn it to face forward, scale it to pet size, stand it on the floor
+    const fit = new THREE.Group(); fit.add(model);
+    model.rotation.y += (def.rot||0) * Math.PI/180;
+    // animations that came with the model (started before measuring, since they can change the pose)
+    const names = (res.animations||[]).map(c=>c.name);
+    this.clipNames = names;
+    if(names.length){
+      this.mixer = new THREE.AnimationMixer(model);
+      this.clips = {}; res.animations.forEach(c=> this.clips[c.name] = c);
+      const a = def.anims || {}, pickA = (k, re) => a[k] !== undefined ? a[k] : guessClip(names, re);
+      this.clipMap = {
+        idle:  pickA('idle',  /idle|stand|breath|rest|wait/i) || names[0],
+        walk:  pickA('walk',  /walk|run|move|trot|jog/i),
+        happy: pickA('happy', /jump|happy|dance|cheer|wave|attack/i),
+        sleep: pickA('sleep', /sleep|lie|lay|down|death|die/i)
+      };
+      this.actions = {};
+      const first = this.actionFor(this.clipMap.idle);
+      if(first){ first.play(); this.curClip = this.clipMap.idle; }
+      this.mixer.update(0);
+    }
+    fit.updateMatrixWorld(true);
+    const box = measureModel(model);
+    let h = box.max.y - box.min.y; if(!(h > 1e-6) || !isFinite(h)) h = 1;
+    const s = .95 / h * (def.scale||1);
+    fit.scale.setScalar(s);
+    fit.position.set(-(box.min.x+box.max.x)/2*s, -box.min.y*s + (def.y||0), -(box.min.z+box.max.z)/2*s);
+    this.holder.add(fit);
+    this.model = model; this.fit = fit;
+    const wide = Math.max(box.max.x-box.min.x, box.max.z-box.min.z) * s;
+    this.size = { w:clamp(wide*.8,.3,1.4), h:.95*(def.scale||1) + (def.y||0) };
+    this.headTop = this.size.h;
+    this.hit.scale.set(this.size.w, this.size.h, this.size.w); this.hit.position.y = this.size.h/2;
+    // accessory spots: on top of the head (uses a "head" bone if the model has one)
+    this.root.updateMatrixWorld(true);
+    let headBone = null;
+    model.traverse(o=>{ if(!headBone && o.isBone && /head/i.test(o.name) && !/end|top|nub/i.test(o.name)) headBone = o; });
+    const wbox = measureModel(model);
+    const top = new THREE.Vector3((wbox.min.x+wbox.max.x)/2, wbox.max.y, (wbox.min.z+wbox.max.z)/2);
+    if(headBone){ const hb = headBone.getWorldPosition(new THREE.Vector3()); top.x = hb.x; top.z = hb.z; }
+    const hs = clamp(Math.min(wbox.max.x-wbox.min.x, wbox.max.z-wbox.min.z)*.8, .18, .8);
+    const par = headBone || this.inner;
+    this.anchorWorld('head', par, top.clone(), hs);
+    this.anchorWorld('float', par, top.clone().add(new THREE.Vector3(0, hs*.6, 0)), hs);
+    this.buildAccessories();
+    if(this.onReady) this.onReady(this);
+  }
+  actionFor(name){
+    if(!name || !this.clips || !this.clips[name]) return null;
+    return this.actions[name] || (this.actions[name] = this.mixer.clipAction(this.clips[name]));
+  }
+
+  /* ---------- accessories ---------- */
+  anchorWorld(slot, parent, worldPos, worldSize){
+    this.root.updateMatrixWorld(true);
+    const ps = parent.getWorldScale(new THREE.Vector3()).x || 1;
+    this.anchors[slot] = { parent, pos:parent.worldToLocal(worldPos.clone()), size:worldSize/ps };
+  }
+  buildAccessories(){
+    this.root.updateMatrixWorld(true);
+    const rq = this.root.getWorldQuaternion(new THREE.Quaternion());
+    Object.entries(this.p.acc||{}).forEach(([slot,id])=>{
+      const a = this.anchors[slot]; if(!id || !a) return;
+      const { group, anim } = buildAcc(id);
+      const h = new THREE.Group();
+      h.position.copy(a.pos);
+      // keep the accessory upright no matter how the bone is turned inside the model
+      h.quaternion.copy(a.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(rq));
+      h.scale.setScalar(a.size);
+      h.add(group); a.parent.add(h);
+      if(anim) this.accAnims.push({ obj:group, anim });
+    });
+  }
+
+  /* ---------- outside world calls these ---------- */
+  setMood(m, sleeping){
+    const drawn = sleeping ? 'sleep' : m;
+    if(this.faceCanvas && this.faceMood !== drawn){
+      drawFace(this.faceCanvas, this.faceSkin, drawn, this.faceOpts);
+      this.faceTex.needsUpdate = true; this.faceMood = drawn;
+    }
+    this.mood = m; this.sleeping = sleeping;
+  }
+  play(action){ this.st.action = action; this.st.actionT = 0; this.st.targetX = null; }
+
+  /* ---------- the brain: picks poses every frame ---------- */
+  update(dt){
+    this.time += dt;
+    const t = this.time, st = this.st, P = this.pose, mood = this.mood;
+    // mood decides how the pet holds itself
+    const T = {
+      happy: { pitch:-.05, wag:.55, freq:10, lift:.35, speed:.45 },
+      meh:   { pitch:.05,  wag:.25, freq:4,  lift:.05, speed:.3  },
+      sad:   { pitch:.35,  wag:.08, freq:2,  lift:-.4, speed:.16 },
+      hungry:{ pitch:.3,   wag:.12, freq:3,  lift:-.2, speed:.2  },
+      hurt:  { pitch:.25,  wag:.05, freq:2,  lift:-.5, speed:.12 }
+    }[mood];
+    let pitch=T.pitch, yaw=Math.sin(t*.7)*.15, roll=0, wag=T.wag, freq=T.freq, legAmp=0, armUp=0, hop=0, spin=0;
+    let lie = this.sleeping ? 1 : 0;
+
+    // actions (eat, pet, jump, heal) take over for a moment
+    if(st.action){
+      st.actionT += dt; const a = st.actionT;
+      if(st.action==='eat'){ pitch = .55 + Math.sin(a*16)*.18; wag=.4; freq=8; if(a>1.8) st.action=null; }
+      if(st.action==='pet'){ roll = Math.sin(a*6)*.25; pitch=-.15; wag=.7; freq=14; armUp=1; hop = Math.max(0,Math.sin(a*Math.PI/0.45))*.05; if(a>1.3) st.action=null; }
+      if(st.action==='jump'){ hop = Math.max(0,Math.sin(a*Math.PI/.55))*.3; pitch=-.2; armUp=1; wag=.6; freq=12; if(a>.55) st.action=null; }
+      if(st.action==='heal'){ spin = smooth(0,.9,a)*Math.PI*2; hop = Math.sin(clamp(a/.9,0,1)*Math.PI)*.15; armUp=1; if(a>.9) st.action=null; }
+    }
+    // wandering around when idle
+    else if(!this.sleeping && this.wander){
+      st.wanderIn -= dt;
+      if(st.targetX===null && st.wanderIn<=0){ st.targetX = (Math.random()*2-1) * .9; if(Math.abs(st.targetX-st.x)<.25) st.targetX=null; st.wanderIn = 4+Math.random()*6; }
+      if(st.targetX!==null){
+        const dir = Math.sign(st.targetX - st.x);
+        const want = dir * Math.PI/2;
+        st.face = approach(st.face, want, 6, dt);
+        if(Math.abs(st.face-want) < .3){
+          st.x += dir * T.speed * dt; legAmp = .5;
+          P.legPhase += dt * T.speed * 22;
+        }
+        if(Math.abs(st.targetX - st.x) < .03){ st.targetX = null; }
+      } else st.face = approach(st.face, .45, 3, dt);
+    }
+    if(this.sleeping){ st.face = approach(st.face, this.p.species==='dog' ? 1.2 : .45, 3, dt); wag=0; pitch=.2; yaw=0; }  // dogs sleep side-on
+    if(mood==='hurt' && !this.sleeping) roll += Math.sin(t*3)*.08;
+
+    // smooth everything so it never snaps
+    const r = 7;
+    P.headPitch = approach(P.headPitch, pitch, r, dt); P.headYaw = approach(P.headYaw, yaw, r, dt); P.headRoll = approach(P.headRoll, roll, r, dt);
+    P.wagAmp = approach(P.wagAmp, wag, 4, dt); P.wagFreq = approach(P.wagFreq, freq, 4, dt);
+    P.tailLift = approach(P.tailLift, this.sleeping?0:T.lift, 3, dt);
+    P.legAmp = approach(P.legAmp, legAmp, 8, dt); P.armUp = approach(P.armUp, armUp, 8, dt);
+    P.lie = approach(P.lie, lie, 2.5, dt);
+    P.breathe = Math.sin(t*(this.sleeping?1.6:2.6)) * (this.sleeping?.035:.02);
+    P.tailPhase = (P.tailPhase||0) + dt*P.wagFreq;
+    if(P.legAmp<.02) P.legPhase = approach(P.legPhase, Math.round(P.legPhase/Math.PI)*Math.PI, 6, dt);
+
+    // whole-body placement
+    this.root.position.set(st.x, hop, 0);
+    this.root.rotation.y = st.face + spin;
+
+    // species specific bone/part posing
+    this['pose_'+this.p.species](dt, t);
+
+    // sick tint
+    const glow = mood==='hurt' && !this.sleeping ? (.25+.15*Math.sin(t*4)) : 0;
+    const green = mood==='hungry' && !this.sleeping ? .08 : 0;
+    this.mats.forEach(m=>{ if(m.emissive) m.emissive.setRGB(glow, green, 0); });
+
+    // physics after posing
+    if(this.jiggles.length){ this.root.updateMatrixWorld(true); this.jiggles.forEach(j=>j.update(Math.min(dt,1/30))); }
+    // accessories that move on their own
+    this.accAnims.forEach(({obj, anim})=>{
+      if(anim==='spin') obj.rotation.y += dt*1.2;
+      if(anim==='bob')  obj.position.y = Math.sin(t*2.2)*.04;
+      if(anim==='sway'){ obj.rotation.z = Math.sin(t*1.3)*.08; obj.position.y = Math.sin(t*1.7)*.03; }
+    });
+  }
+
+  /* shared helper for 4-legged pets */
+  quadLegs(swing){
+    const ph = this.pose.legPhase, a = this.pose.legAmp;
+    turn(this.legs.fl, AX.X,  Math.sin(ph)*a + (swing?swing.f:0));
+    turn(this.legs.br, AX.X,  Math.sin(ph)*a + (swing?swing.b:0));
+    turn(this.legs.fr, AX.X, -Math.sin(ph)*a + (swing?swing.f:0));
+    turn(this.legs.bl, AX.X, -Math.sin(ph)*a + (swing?swing.b:0));
+  }
+  tailWave(scaleBig){
+    const P = this.pose, lie = P.lie;
+    this.tail.forEach((b,i)=>{
+      turn(b, AX.Y, Math.sin(P.tailPhase - i*.8) * P.wagAmp * .55 * (1-lie));
+      turn(b, AX.X, P.tailLift * .3 * (1-lie));
+    });
+    this.tail[0].scale.copy(this.tail[0].userData.restScale).multiplyScalar(lerp(scaleBig, 1, lie));
+  }
+
+  pose_cat(dt){
+    const P = this.pose;
+    Object.values(this.bones).forEach(b=>{ b.quaternion.copy(b.userData.rest); b.scale.copy(b.userData.restScale); });
+    this.body.scale.set(1+P.breathe*.5, 1+P.breathe, 1);
+    turn(this.head, AX.X, P.headPitch*(1-P.lie*.6)); turn(this.head, AX.Y, P.headYaw); turn(this.head, AX.Z, P.headRoll);
+    if(this.p.age==='baby') this.head.scale.setScalar(1.22);
+    this.tailWave(this.tailBig);
+    this.quadLegs();
+    this.mesh.morphTargetInfluences[0] = P.lie;      // the model's own curled up "loaf" pose
+  }
+
+  pose_dog(dt){
+    const P = this.pose;
+    this.mixer.update(dt);                           // the model's own idle animation first
+    turn(this.head, AX.X, P.headPitch*.8); turn(this.head, AX.Y, P.headYaw); turn(this.head, AX.Z, P.headRoll);
+    if(this.p.age==='baby') this.head.scale.copy(this.head.userData.restScale).multiplyScalar(1.2);
+    this.tailWave(this.tailBig);
+    // sleeping: flop over onto one side, legs relaxed
+    const L = P.lie, sc = this.inner.scale.y;
+    this.quadLegs({ f:-.35*L, b:.35*L });
+    turn(this.knees.fl, AX.X, .4*L); turn(this.knees.fr, AX.X, .4*L);
+    this.inner.rotation.z = L * 1.45;
+    this.inner.position.set(L * .45 * sc, L * .02 * sc, 0);   // roll keeps the body over its shadow
+    turn(this.spine, AX.Y, Math.sin(this.time*1.3)*.04);
+  }
+
+  pose_human(dt){
+    const P = this.pose, L = P.lie;
+    this.torso.scale.set(1, 1+P.breathe, 1);
+    this.torso.rotation.x = (this.hunch||0) + P.headPitch*.15;
+    this.headG.rotation.set(P.headPitch*.8, P.headYaw, P.headRoll);
+    const ph = P.legPhase, a = P.legAmp;
+    this.legs.l.rotation.x = Math.sin(ph)*a; this.legs.r.rotation.x = -Math.sin(ph)*a;
+    if(this.skirt) this.skirt.scale.set(1 + Math.abs(Math.sin(ph))*a*.12, 1, 1 + Math.abs(Math.sin(ph))*a*.2);   // flares a bit while walking
+    // arms swing when walking, go up when excited, droop when sad
+    const happyWave = this.mood==='happy' && !this.sleeping ? Math.max(0,Math.sin(this.time*.9))*.25 : 0;
+    this.arms.l.rotation.x = -Math.sin(ph)*a*.8; this.arms.r.rotation.x = Math.sin(ph)*a*.8;
+    this.arms.l.rotation.z = -.12 - P.armUp*2.3 - happyWave*.3;
+    this.arms.r.rotation.z =  .12 + P.armUp*2.3 + happyWave*(1+Math.sin(this.time*8)*.4);
+    // sleeping: lie down on the rug, on your side
+    this.bodyG.rotation.z = L * Math.PI/2;
+    this.bodyG.position.y = lerp(this.hipY, this.P.w*.62+.02, L);
+    this.bodyG.position.x = L * (this.P.torso + this.P.head*2 - this.P.leg) / 2;   // keep them centered
+  }
+
+  pose_custom(dt){
+    const P = this.pose, L = P.lie;
+    const sq = 1 + P.breathe*1.5 - L*.12;
+    this.blob.scale.set(1/Math.sqrt(sq), (this.p.customType==='blob'?.9:1.05)*sq, 1/Math.sqrt(sq));
+    this.bodyG.rotation.set(P.headPitch*.3, P.headYaw*.5, P.headRoll*.6 + L*.15);
+    const ph = P.legPhase, a = P.legAmp;
+    this.legs.l.rotation.x = Math.sin(ph)*a; this.legs.r.rotation.x = -Math.sin(ph)*a;
+    this.bodyG.position.y = this.hipY + Math.abs(Math.sin(ph))*a*.08;
+    this.arms.l.rotation.z = -.3 - P.armUp*1.6; this.arms.r.rotation.z = .3 + P.armUp*1.6;
+  }
+
+  pose_upload(dt){
+    if(!this.fit) return;
+    const P = this.pose, st = this.st, L = P.lie;
+    // pick which of the model's animations to play
+    let want = 'idle';
+    if(this.sleeping) want = 'sleep';
+    else if(st.action) want = 'happy';
+    else if(P.legAmp > .2) want = 'walk';
+    const map = this.clipMap || {};
+    if(this.mixer){
+      const name = map[want] || map.idle;
+      if(name !== this.curClip){
+        const prev = this.actionFor(this.curClip), next = this.actionFor(name);
+        if(prev) prev.fadeOut(.3);
+        if(next) next.reset().fadeIn(.3).play();
+        this.curClip = name;
+      }
+      this.mixer.update(dt);
+    }
+    // made-up motion for anything the model has no animation for
+    const hasSleep = !!map.sleep, hasWalk = !!map.walk;
+    const lie = hasSleep ? 0 : L;
+    const sq = 1 + P.breathe*1.2 - lie*.22;
+    this.holder.scale.set(1 + lie*.1, sq, 1 + lie*.1);
+    this.holder.position.y = hasWalk ? 0 : Math.abs(Math.sin(P.legPhase))*P.legAmp*.1;
+    this.holder.rotation.set(hasWalk ? 0 : Math.sin(P.legPhase)*P.legAmp*.1, 0, P.headRoll*.35 + (this.mixer ? 0 : P.headYaw*.15));
+    if(!this.mixer) this.holder.rotation.x += P.headPitch*.15;
+  }
+
+  dispose(){
+    this.disposed = true;
+    this.root.traverse(o=>{
+      if(o.isMesh && o.geometry !== M.catGeo && !o.isSkinnedMesh && !o.userData.keep) o.geometry.dispose();
+    });
+    if(this.faceTex) this.faceTex.dispose();
+  }
+}
+
+/* =========================================================
+   STAGE: one WebGL view (main pet screen or setup preview)
+   ========================================================= */
+class Stage {
+  constructor(el, opts={}){
+    this.el = el; this.opts = opts;
+    this.renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true, preserveDrawingBuffer:!!opts.snap });
+    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
+    this.renderer.outputEncoding = THREE.sRGBEncoding;
+    el.appendChild(this.renderer.domElement);
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(opts.fov||30, 1, .05, 50);
+    // lights: soft sky light + moon key light + colored rim light
+    this.scene.add(new THREE.HemisphereLight(0xc8c0ff, 0x3a2a60, .95));
+    const key = new THREE.DirectionalLight(0xfff2dd, 1.35); key.position.set(2,4,3); this.scene.add(key);
+    const rim = new THREE.DirectionalLight(0x3ee8ff, .9); rim.position.set(-3,2,-3); this.scene.add(rim);
+    // soft round shadow under the pet
+    const sc = document.createElement('canvas'); sc.width=sc.height=128;
+    const sg = sc.getContext('2d'), grd = sg.createRadialGradient(64,64,0,64,64,64);
+    grd.addColorStop(0,'rgba(0,0,0,.55)'); grd.addColorStop(1,'rgba(0,0,0,0)'); sg.fillStyle=grd; sg.fillRect(0,0,128,128);
+    this.shadow = new THREE.Mesh(new THREE.PlaneGeometry(1,1), new THREE.MeshBasicMaterial({ map:new THREE.CanvasTexture(sc), transparent:true, depthWrite:false }));
+    this.shadow.rotation.x = -Math.PI/2; this.shadow.position.y = .002; this.scene.add(this.shadow);
+    this.actor = null;
+    if(!opts.snap){
+      new ResizeObserver(()=>this.resize()).observe(el);
+      this.resize();
+    }
+  }
+  resize(w, h){
+    w = w || this.el.clientWidth; h = h || this.el.clientHeight;
+    if(!w || !h) return;
+    this.renderer.setSize(w, h, !this.opts.snap);
+    this.camera.aspect = w/h;
+    this.frame();
+  }
+  // camera framing: keep the pet a good size whatever the window shape
+  frame(){
+    const c = this.camera, o = this.opts;
+    const dist = o.dist || 3.4;
+    const fit = Math.max(1, 1.15 / c.aspect);            // pull back on narrow views
+    c.position.set(0, o.camY ?? .9, dist*fit);
+    c.lookAt(0, o.lookY ?? .42, 0);
+    c.updateProjectionMatrix();
+  }
+  setPet(p){
+    if(this.actor){ this.scene.remove(this.actor.root); this.actor.dispose(); }
+    this.actor = p ? new PetActor(p) : null;
+    if(this.actor){ this.actor.wander = !!this.opts.wander && settings.wander; this.scene.add(this.actor.root); }
+  }
+  tick(dt){
+    if(!this.actor) return;
+    this.actor.update(dt);
+    const a = this.actor, s = a.size.w * 1.3 * (a.inner.scale.x || 1);
+    this.shadow.position.x = a.root.position.x;
+    this.shadow.scale.set(s*(a.pose.lie>.5?1.4:1), s*.7, 1);
+    this.shadow.material.opacity = 1 - a.root.position.y*1.5;
+    this.renderer.render(this.scene, this.camera);
+  }
+  // screen position (pixels inside the element) of a point on the pet
+  project(y){
+    const a = this.actor; if(!a) return {x:0,y:0};
+    const v = new THREE.Vector3(0, y, 0).applyMatrix4(a.root.matrixWorld).project(this.camera);
+    return { x:(v.x+1)/2*this.el.clientWidth, y:(1-v.y)/2*this.el.clientHeight };
+  }
+  // take a picture of a pet (for menu and choice cards)
+  snapshot(p, w=260, h=280){
+    this.resize(w, h);
+    this.setPet(p);
+    this.actor.st.face = .5;
+    for(let i=0;i<20;i++) this.actor.update(1/30);   // settle springs
+    this.tick(0.0001);
+    return this.renderer.domElement.toDataURL('image/png');
+  }
+}
+
+/* =========================================================
+   SAVE / LOAD (Mac app injects window.__PP_SAVE)
+   ========================================================= */
+const IN_APP = ('__PP_SAVE' in window);
+// pets = every pet you own, pet = the one on screen right now
+const MAX_PETS = 6;
+let pets = [], active = 0, pet = null, soundOn = true;
+let wallet = 10;              // coins are shared by all your pets
+let settings = { wander:true, speed:1, menubar:true, autoUpdate:true };   // sound lives in soundOn
+let owned = new Set();        // accessories and backgrounds you bought
+let userBgs = [];             // backgrounds you uploaded: { key, name }
+function loadSave(){
+  try{
+    const raw = IN_APP ? window.__PP_SAVE : JSON.parse(localStorage.getItem('pocketpal')||'null');
+    if(raw){
+      if(Array.isArray(raw.pets)) pets = raw.pets;
+      else if(raw.pet) pets = [raw.pet];                 // old single-pet saves still work
+      active = clamp(raw.active|0, 0, Math.max(0, pets.length-1));
+      soundOn = raw.sound !== false;
+      if(raw.settings) settings = { ...settings, ...raw.settings };
+      customs = Array.isArray(raw.customs) ? raw.customs : [];
+      userBgs = Array.isArray(raw.userBgs) ? raw.userBgs : [];
+      owned = new Set(raw.owned || []);
+      // older saves kept coins on each pet; add them up into one wallet
+      wallet = typeof raw.wallet === 'number' ? raw.wallet : (pets.reduce((t,p)=>t+(p.coins||0),0) || 10);
+    }
+    pets.forEach(p=>{ if(p.color===undefined && (p.species==='cat'||p.species==='dog')) p.color='orig'; });
+  }catch(e){ pets=[]; active=0; }
+  pet = pets[active] || null;
+}
+function saveNow(){
+  const data = { pets, active, sound:soundOn, settings, wallet, owned:[...owned], userBgs,
+    customs: customs.map(({ bufs, isNew, ...keep }) => keep) };
+  if(!IN_APP){ try{ localStorage.setItem('pocketpal', JSON.stringify(data)); }catch(e){} }
+  // the Mac app reads this title: one menu bar face per pet + the save file text
+  document.title = 'PP|' + JSON.stringify({
+    pets: pets.map(p=>({ name:p.name, species:speciesLabel(p),
+      face: p.sleeping ? 'sleep' : moodOf(p), moodText: p.sleeping ? 'Sleeping' : MOOD_TEXT[moodOf(p)],
+      happy:Math.round(p.happy), food:Math.round(p.food), health:Math.round(p.health), sleeping:p.sleeping?1:0 })),
+    menubar: settings.menubar ? 1 : 0,
+    save: JSON.stringify(data)
+  });
+}
+
+/* SOUND: tiny WebAudio beeps */
+let actx=null;
+function beep(freq=600,dur=.12,type='square',vol=.06){
+  if(!soundOn) return;
+  try{
+    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(), g=actx.createGain();
+    o.type=type; o.frequency.value=freq; g.gain.value=vol; o.connect(g); g.connect(actx.destination);
+    g.gain.exponentialRampToValueAtTime(.0001, actx.currentTime+dur); o.start(); o.stop(actx.currentTime+dur);
+  }catch(e){}
+}
+const sfx = {
+  click:()=>beep(520,.08),
+  happy:()=>{beep(660,.1,'triangle',.08);setTimeout(()=>beep(880,.14,'triangle',.08),90)},
+  eat:()=>{beep(300,.07);setTimeout(()=>beep(260,.07),120);setTimeout(()=>beep(300,.07),240)},
+  coin:()=>beep(1200,.08,'triangle',.07),
+  bad:()=>beep(180,.2,'sawtooth',.05)
+};
+
+/* =========================================================
+   SCREENS + SETUP FLOW
+   ========================================================= */
+let draft = {}, mainStage = null, previewStage = null, snapStage = null;
+const thumbs = {};
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('show', s.id===id));
+  if(id==='sName' && previewStage) setTimeout(()=>previewStage.resize(), 0);
+  if(id==='pet' && mainStage) setTimeout(()=>mainStage.resize(), 0);
+}
+document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{ sfx.click(); if(b.dataset.go==='pet' && pet) enterPet(); else show(b.dataset.go); });
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{ sfx.click(); $(b.dataset.close).classList.remove('show'); });
+for(let i=0;i<70;i++){
+  const st=document.createElement('div'); st.className='star'; const sz=Math.random()*3+1;
+  st.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;width:${sz}px;height:${sz}px;--d:${2+Math.random()*3}s;--dl:${Math.random()*3}s`;
+  $('sky').appendChild(st);
+}
+// default look for each species (used for pictures on the menu and cards)
+const SAMPLE = {
+  cat:   { species:'cat', color:'orig', gender:'girl', age:'adult' },
+  dog:   { species:'dog', color:'orig', gender:'boy', age:'adult' },
+  human: { species:'human', color:'#f2c49b', hair:HAIR[0], shirt:SHIRTS[1], gender:'girl', age:'teen' },
+  custom:{ species:'custom', color:'#6c7bff', customType:'alien', gender:'nb', age:'adult' }
+};
+function refreshMenu(){
+  if(!M.ready) return;
+  $('playBtn').disabled = false;
+  $('playBtn').textContent = !pet ? '▶ Play' : pets.length>1 ? `▶ Play with your ${pets.length} pets` : `▶ Play with ${pet.name}`;
+  $('newPetBtn').style.display = pet && pets.length < MAX_PETS ? '' : 'none';
+  $('newPetBtn').textContent = '+ Adopt another pet';
+  $('mAdd').style.display = pets.length < MAX_PETS ? '' : 'none';
+  const t = soundOn ? '🔊 Sound: On' : '🔇 Sound: Off';
+  $('soundBtn').textContent = t;
+}
+$('playBtn').onclick = ()=>{ sfx.happy(); pet ? enterPet() : startSetup(); };
+$('newPetBtn').onclick = ()=>{ sfx.click(); startSetup(); };
+$('soundBtn').onclick = ()=>{ soundOn=!soundOn; refreshMenu(); saveNow(); sfx.click(); };
+
+function startSetup(){
+  draft = { customType:'blob' };
+  $('speciesChoices').innerHTML = ['cat','dog','human'].map(k =>
+    `<button class="choice" data-sp="${k}"><img src="${thumbs[k]}" alt="">${SPECIES[k].label}<small>Classic pal</small></button>`).join('')
+    + `<button class="choice" data-sp="upload"><div class="big" style="font-size:72px;line-height:130px">📦</div>Custom<small>Upload your own!</small></button>`;
+  document.querySelectorAll('[data-sp]').forEach(b=>b.onclick=()=>{
+    sfx.click(); draft.species=b.dataset.sp; draft.color=SPECIES[draft.species].colors[0];
+    draft.hair=HAIR[0]; draft.shirt=pick(SHIRTS);
+    if(draft.species==='upload') openCustom(); else goGender();
+  });
+  document.querySelector('#sSpecies .back').dataset.go = pets.length ? 'pet' : 'menu';
+  show('sSpecies');
+}
+$('genderChoices').innerHTML = Object.entries(GENDERS).map(([k,v]) =>
+  `<button class="choice" data-g="${k}"><div class="big">${v.icon}</div>${v.label}<small>${v.pro}/${v.obj}</small></button>`).join('');
+function goGender(){
+  document.querySelector('#sGender .back').dataset.go = draft.species==='upload' ? 'sCustom' : 'sSpecies';
+  show('sGender');
+}
+document.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{ sfx.click(); draft.gender=b.dataset.g; show('sAge'); });
+$('ageChoices').innerHTML = Object.entries(AGES).map(([k,v]) =>
+  `<button class="choice" data-a="${k}"><div class="big">${v.icon}</div>${v.label}<small>${v.note}</small></button>`).join('');
+document.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{ sfx.click(); draft.age=b.dataset.a; openNameStep(true); });
+
+function swatchRow(el, list, current, key, rebuild){
+  el.innerHTML = list.map(col => col==='orig'
+    ? `<button class="sw orig ${current===col?'on':''}" data-k="${key}" data-v="orig" title="Original"></button>`
+    : `<button class="sw ${current===col?'on':''}" style="background:${col}" data-k="${key}" data-v="${col}"></button>`).join('');
+  el.querySelectorAll('.sw').forEach(b=>b.onclick=()=>{ sfx.click(); draft[b.dataset.k]=b.dataset.v; rebuild(); });
+}
+function openNameStep(first){
+  const sp = draft.species;
+  $('colorLabel').textContent = sp==='human' ? 'Skin' : sp==='upload' ? 'Tint' : sp==='custom' ? 'Color' : 'Fur';
+  $('typeBox').style.display = sp==='custom' ? '' : 'none';
+  $('hairBox').style.display = sp==='human' ? '' : 'none';
+  $('shirtBox').style.display = sp==='human' ? '' : 'none';
+  $('typeBtns').innerHTML = Object.entries(CUSTOM_TYPES).map(([k,v]) => `<button class="btn small ghost ${draft.customType===k?'on':''}" data-t="${k}">${v}</button>`).join('');
+  document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{ sfx.click(); draft.customType=b.dataset.t; openNameStep(); });
+  swatchRow($('colorSw'), SPECIES[sp].colors, draft.color, 'color', openNameStep);
+  swatchRow($('hairSw'), HAIR, draft.hair, 'hair', openNameStep);
+  swatchRow($('shirtSw'), SHIRTS, draft.shirt, 'shirt', openNameStep);
+  if(first) show('sName');
+  previewStage.setPet({ ...draft, name:'preview' });
+  previewStage.actor.st.face = .5;
+}
+$('randName').onclick = ()=>{ sfx.click(); $('nameInput').value = pick(NAMES[draft.species]); };
+$('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') $('doneBtn').click(); });
+$('doneBtn').onclick = ()=>{
+  const name = $('nameInput').value.trim() || pick(NAMES[draft.species]);
+  const now = Date.now();
+  pets.push({ ...draft, name, happy:80, food:75, health:100, acc:{}, sleeping:false, born:now, last:now });
+  active = pets.length - 1; pet = pets[active];
+  $('nameInput').value='';
+  saveNow(); sfx.happy(); enterPet();
+  setTimeout(()=>say(`Hi! I'm ${name}!`), 500);
+};
+
+/* =========================================================
+   PET LOGIC
+   ========================================================= */
+function moodOf(p){
+  if(p.health < 35) return 'hurt';     // low health = red face
+  if(p.food < 30)   return 'hungry';   // hungry = sick face
+  if(p.happy >= 65) return 'happy';
+  if(p.happy >= 35) return 'meh';
+  return 'sad';
+}
+function simulate(p, sec){
+  sec *= settings.speed || 1;                 // the "how fast pets get hungry" setting
+  const slow = p.sleeping ? .5 : 1, hunger = AGES[p.age].hunger;
+  p.food  -= sec * 0.0125 * hunger * slow;
+  p.happy -= sec * 0.0105 * slow;
+  let dh = 0;
+  if(p.food < 20)  dh -= 0.02;
+  if(p.happy < 20) dh -= 0.01;
+  if(p.food > 50 && p.happy > 40) dh += 0.008 * (p.age==='elder' ? .8 : 1);
+  if(p.sleeping) dh += 0.03;
+  p.health += sec * dh;
+  p.food=clamp(p.food,0,100); p.happy=clamp(p.happy,0,100); p.health=clamp(p.health,5,100);  // no pet ever dies
+}
+// time passes for every pet while the app is closed (up to 12 hours)
+function catchUp(p){
+  const away = Math.min((Date.now() - (p.last||Date.now()))/1000, 12*3600);
+  for(let t=0;t<away;t+=60) simulate(p, Math.min(60, away-t));
+  p.last = Date.now();
+  return away;
+}
+function switchPet(i){
+  if(i===active || !pets[i]) return;
+  if(game) return;                  // finish the mini game first
+  active = i; pet = pets[i]; sfx.click(); enterPet(); saveNow();
+}
+// the row of pet buttons in the top bar
+function drawTabs(){
+  const html = pets.map((p,i)=>`<button class="tab ${i===active?'on':''}" data-pi="${i}" title="${p.name}"><span class="tf">${p.sleeping?'💤':FACES[moodOf(p)]}</span>${p.name}</button>`).join('')
+    + (pets.length < MAX_PETS ? `<button class="tab add" id="addTab" title="Adopt another pet">+ New</button>` : '');
+  if($('petTabs')._html === html) return;
+  $('petTabs')._html = html; $('petTabs').innerHTML = html;
+  $('petTabs').querySelectorAll('[data-pi]').forEach(b=>b.onclick=()=>switchPet(+b.dataset.pi));
+  if($('addTab')) $('addTab').onclick = ()=>{ sfx.click(); startSetup(); };
+}
+// which background a pet shows: one picked in the shop, the custom character's own, or the species default
+function bgFor(p){
+  if(p.bg) return p.bg;
+  if(p.species==='upload'){ const d = getDef(p.customId); return d && d.bg && d.files[d.bg] ? 'up:'+d.files[d.bg] : 'space'; }
+  return SPECIES[p.species].scene;
+}
+async function paintBg(el, bg){
+  el.dataset.bg = bg;
+  if(!bg.startsWith('up:')){ el.innerHTML = sceneSVG(bg); return; }
+  el.innerHTML = sceneSVG('space');                      // shows while the picture loads
+  const url = await blobURL(bg.slice(3));
+  if(url && el.dataset.bg === bg) el.innerHTML = `<img src="${url}" alt="">`;
+}
+function enterPet(){
+  const away = catchUp(pet);
+  const bg = bgFor(pet);
+  paintBg($('sceneBg'), bg);
+  $('sceneFx').innerHTML = bg==='yard' ? Array.from({length:8},()=>`<div class="firefly" style="left:${Math.random()*90}%;top:${30+Math.random()*45}%;animation-delay:${Math.random()*5}s"></div>`).join('') : '';
+  mainStage.setPet(pet);
+  show('pet'); render(true);
+  if(away > 600) setTimeout(()=>say(moodOf(pet)==='happy' ? 'You are back! Yay!' : 'I missed you...'), 600);
+}
+let lastSleep=null;
+function render(force){
+  if(!pet) return;
+  const m = moodOf(pet);
+  drawTabs();
+  if(mainStage.actor) mainStage.actor.setMood(m, pet.sleeping);
+  $('petName').textContent = pet.name;
+  const day = Math.floor((Date.now()-pet.born)/86400000)+1;
+  $('petInfo').textContent = `${AGES[pet.age].label} ${speciesLabel(pet)} · ${GENDERS[pet.gender].label} · Day ${day}`;
+  $('moodFace').textContent = FACES[m]; $('emote').textContent = pet.sleeping ? '💤' : FACES[m];
+  $('moodText').textContent = pet.sleeping ? 'Sleeping' : MOOD_TEXT[m];
+  $('moodBadge').style.background = MOOD_COLOR[m];
+  $('coinCount').textContent = wallet;
+  [['Happy','happy'],['Food','food'],['Health','health']].forEach(([n,k])=>{
+    const v = Math.round(pet[k]); $('m'+n).style.width=v+'%'; $('m'+n).classList.toggle('low', v<30); $('v'+n).textContent=v+'%';
+  });
+  if(force || lastSleep!==pet.sleeping){
+    $('scene').classList.toggle('sleeping', pet.sleeping);
+    $('aSleep').textContent = pet.sleeping ? '☀️ Wake up' : '🌙 Sleep';
+    ['aFeed','aPlay','aPet','aHeal'].forEach(id=>$(id).disabled = pet.sleeping);
+    lastSleep = pet.sleeping;
+  }
+}
+
+// keep the speech bubble, emote and effect box glued to the 3D pet
+function trackOverlays(){
+  const st = mainStage, a = st.actor; if(!a) return;
+  const acc = pet.acc || {}, extra = acc.float ? .32 : acc.head ? .2 : 0;      // leave room for hats
+  const top = ((a.headTop || a.size.h) * a.inner.scale.x + extra) * (a.pose.lie>.5 ? .55 : 1);
+  const head = st.project(top + .05), feet = st.project(0);
+  $('emote').style.left = head.x+'px'; $('emote').style.top = head.y+'px';
+  $('bubble').style.left = head.x+'px'; $('bubble').style.top = (head.y-46)+'px';
+  const w = Math.max(60, (feet.y-head.y)*.9);
+  Object.assign($('petWrap').style, { left:(head.x-w/2)+'px', top:head.y+'px', width:w+'px', height:Math.max(40,feet.y-head.y)+'px' });
+  // floating Zzz when asleep
+  if(pet && pet.sleeping && Math.random()<.02){
+    const z=document.createElement('div'); z.className='zzz'; z.textContent='Z';
+    z.style.left=(head.x+10)+'px'; z.style.top=(head.y+10)+'px'; $('scene').appendChild(z); setTimeout(()=>z.remove(),2400);
+  }
+}
+
+let bubbleTimer=null;
+function say(text){ const b=$('bubble'); b.textContent=text; b.classList.add('show'); clearTimeout(bubbleTimer); bubbleTimer=setTimeout(()=>b.classList.remove('show'),2800); }
+function popFx(emoji,n=4){
+  const r=$('petWrap').getBoundingClientRect(), sr=$('scene').getBoundingClientRect();
+  for(let i=0;i<n;i++){
+    const d=document.createElement('div'); d.className='pop'; d.textContent=emoji;
+    d.style.left=(r.left-sr.left+r.width*(.2+Math.random()*.6))+'px'; d.style.top=(r.top-sr.top+r.height*(.1+Math.random()*.3))+'px';
+    d.style.animationDelay=(i*.12)+'s'; $('scene').appendChild(d); setTimeout(()=>d.remove(),1600);
+  }
+}
+function act(name){ if(mainStage.actor) mainStage.actor.play(name); }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),1800); }
+function change(k,amt){ pet[k]=clamp(pet[k]+amt,0,100); }
+
+/* FEED */
+$('aFeed').onclick = ()=>{
+  sfx.click();
+  $('foodList').innerHTML = FOODS.map(f => `<button class="food" data-f="${f.id}" ${wallet<f.cost?'disabled style="opacity:.45"':''}><span class="e">${f.e[pet.species]}</span>${f.name}<small>${f.note}</small><span class="cost">${f.cost?'🪙 '+f.cost:'Free'}</span></button>`).join('');
+  document.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>feed(FOODS.find(f=>f.id===b.dataset.f)));
+  $('foodTray').classList.add('show');
+};
+function feed(f){
+  $('foodTray').classList.remove('show');
+  if(wallet < f.cost){ toast('Not enough coins! Play to earn more.'); return; }
+  if(pet.food > 95){ change('health',-4); sfx.bad(); say('Too full! My tummy...'); render(); saveNow(); return; }
+  wallet -= f.cost; change('food',f.food); change('happy',f.happy); change('health',f.health);
+  sfx.eat(); act('eat'); popFx(f.e[pet.species],3); say(pick(['Yum!','Nom nom nom!','Tasty!','Mmm!']));
+  render(); saveNow();
+}
+/* PET (cuddle) */
+let lastPet=0;
+function cuddle(){
+  if(!pet || pet.sleeping) return;
+  if(Date.now()-lastPet < 700) return; lastPet=Date.now();
+  change('happy',4); sfx.happy(); act('pet'); popFx('💖',4);
+  if(Math.random()<.5) say(pick(LINES[moodOf(pet)]));
+  render(); saveNow();
+}
+$('aPet').onclick = cuddle;
+// clicking right on the 3D pet also pets it
+$('stage3d').addEventListener('pointerdown', e=>{
+  const a = mainStage.actor; if(!a) return;
+  const r = $('stage3d').getBoundingClientRect();
+  const ray = new THREE.Raycaster();
+  ray.setFromCamera({ x:(e.clientX-r.left)/r.width*2-1, y:-(e.clientY-r.top)/r.height*2+1 }, mainStage.camera);
+  if(ray.intersectObject(a.hit).length){ pet.sleeping ? say('Zzz...') : cuddle(); }
+});
+/* HEAL */
+$('aHeal').onclick = ()=>{
+  if(pet.health >= 95){ say('I feel great already!'); sfx.click(); return; }
+  if(wallet < 4){ toast('Medicine costs 🪙 4. Play to earn coins!'); sfx.bad(); return; }
+  wallet -= 4; change('health',35); change('happy',-4);
+  sfx.happy(); popFx('✨',5); act('heal'); say('Yuck... but I feel better!'); render(); saveNow();
+};
+/* SLEEP */
+$('aSleep').onclick = ()=>{
+  pet.sleeping = !pet.sleeping; sfx.click();
+  if(!pet.sleeping){ say('Good morning!'); setTimeout(()=>act('jump'), 500); }
+  render(); saveNow();
+};
+/* PLAY: Star Catch */
+let game=null;
+$('aPlay').onclick = ()=>{
+  if(game) return;
+  if(pet.food < 10){ say('Too hungry to play...'); sfx.bad(); return; }
+  sfx.happy(); game = { score:0, left:15 };
+  $('game').classList.add('show'); $('gScore').textContent=0; $('gTime').textContent=15; $('gBar').style.width='100%';
+  const g=$('game'), H=g.clientHeight;
+  game.spawn = setInterval(()=>{
+    const st=document.createElement('div'); st.className='fstar';
+    const gold = Math.random()<.12; st.textContent = gold?'🌟':'⭐';
+    st.style.left=(5+Math.random()*85)+'%'; st.style.setProperty('--fall',(H+60)+'px'); st.style.animationDuration=(1.8+Math.random()*1.4)+'s';
+    st.onpointerdown = e=>{ e.stopPropagation(); game.score+=gold?3:1; $('gScore').textContent=game.score; sfx.coin(); st.textContent='✨'; st.style.pointerEvents='none'; setTimeout(()=>st.remove(),150); };
+    st.addEventListener('animationend',()=>st.remove()); g.appendChild(st);
+  },420);
+  game.timer = setInterval(()=>{ game.left--; $('gTime').textContent=game.left; $('gBar').style.width=(game.left/15*100)+'%'; if(game.left<=0) endGame(); },1000);
+};
+function endGame(){
+  clearInterval(game.spawn); clearInterval(game.timer);
+  document.querySelectorAll('.fstar').forEach(s=>s.remove()); $('game').classList.remove('show');
+  const s=game.score; game=null;
+  wallet+=s; change('happy',Math.min(30,8+s*2)); change('food',-5);
+  render(); saveNow(); act('jump'); popFx('🪙',3);
+  popup('Great job!', `You caught <b>${s}</b> stars!<br>+${s} 🪙 coins and ${pet.name} is happier!`, [['Yay!','green',null]]);
+}
+/* popups + menu */
+function popup(title, html, buttons){
+  $('popTitle').textContent=title; $('popText').innerHTML=html; $('popBtns').innerHTML='';
+  buttons.forEach(([label,color,fn])=>{ const b=document.createElement('button'); b.className='btn '+color; b.textContent=label; b.onclick=()=>{ sfx.click(); $('popup').classList.remove('show'); if(fn) fn(); }; $('popBtns').appendChild(b); });
+  $('popup').classList.add('show');
+}
+function confirmNewPet(){
+  popup('Say goodbye?', `<b>${pet.name}</b> will go live on a happy farm forever. Are you sure?`,
+    [['Keep '+pet.name,'cyan',null],['Say goodbye','pink',()=>{
+      pets.splice(active,1); active = Math.max(0, active-1); pet = pets[active] || null;
+      $('gameMenu').classList.remove('show');
+      saveNow(); refreshMenu();
+      if(pet) enterPet(); else { mainStage.setPet(null); startSetup(); }
+    }]]);
+}
+$('menuBtn').onclick = ()=>{ sfx.click(); refreshMenu(); $('gameMenu').classList.add('show'); };
+$('mResume').onclick = ()=>{ sfx.click(); $('gameMenu').classList.remove('show'); };
+
+/* =========================================================
+   SETTINGS
+   ========================================================= */
+function openSettings(){
+  $('gameMenu').classList.remove('show');
+  drawSettings(); $('settings').classList.add('show');
+}
+function drawSettings(){
+  const vals = { sound: soundOn?'1':'0', wander: settings.wander?'1':'0', speed: String(settings.speed), menubar: settings.menubar?'1':'0', autoUpdate: settings.autoUpdate?'1':'0' };
+  $('verLine').textContent = `Pocket Pal version ${GAME_VERSION} · Here Studios`;
+  document.querySelectorAll('#settings .seg').forEach(seg=>{
+    seg.querySelectorAll('button').forEach(b=> b.classList.toggle('on', b.dataset.v === vals[seg.dataset.set]));
+  });
+  // custom models: show which pets use each one
+  $('modelList').innerHTML = customs.length ? customs.map(c=>{
+    const users = pets.filter(p=>p.species==='upload' && p.customId===c.id).map(p=>p.name);
+    return `<div class="modelRow"><span>${c.label||'Custom'} <small>${Object.keys(c.files).length} files${users.length?' · used by '+users.join(', '):''}</small></span>`
+      + (users.length ? '' : `<button class="btn pink small" data-delmodel="${c.id}">Delete</button>`) + `</div>`;
+  }).join('') : '<small style="color:var(--cyan)">None yet. Pick Custom when adopting a pet to upload one.</small>';
+  $('modelList').querySelectorAll('[data-delmodel]').forEach(b=>b.onclick=()=>{
+    const c = customs.find(x=>x.id===b.dataset.delmodel);
+    Object.values(c.files).forEach(k=>Store.del(k));
+    customs = customs.filter(x=>x!==c);
+    sfx.click(); toast(`Deleted ${c.label||'that model'}`); saveNow(); drawSettings();
+  });
+}
+document.querySelectorAll('#settings .seg button').forEach(b=>b.onclick=()=>{
+  const key = b.parentElement.dataset.set, v = b.dataset.v;
+  if(key==='sound') soundOn = v==='1';
+  if(key==='wander'){ settings.wander = v==='1'; if(mainStage && mainStage.actor){ mainStage.actor.wander = settings.wander; mainStage.actor.st.targetX = null; } }
+  if(key==='speed') settings.speed = +v;
+  if(key==='menubar') settings.menubar = v==='1';
+  if(key==='autoUpdate') settings.autoUpdate = v==='1';
+  sfx.click(); saveNow(); refreshMenu(); drawSettings();
+});
+/* =========================================================
+   AUTO UPDATE
+   When the Mac app opens, ask GitHub for the newest game version.
+   If it is newer than this one, download it and the app swaps it in.
+   ========================================================= */
+const GAME_VERSION = /*__VERSION__*/0;
+const REPO = 'FallGameDev/pocketpalsdk';
+async function getURL(url, ms, asText){
+  const ctl = new AbortController(), t = setTimeout(()=>ctl.abort(), ms);
+  try{
+    const r = await fetch(url, { signal:ctl.signal, cache:'no-store' });
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    return asText ? await r.text() : await r.json();
+  } finally { clearTimeout(t); }
+}
+let updating = false;
+async function checkForUpdate(manual){
+  if(updating) return;
+  if(!BRIDGE){ if(manual) toast('Updates work in the Mac app'); return; }
+  if(!settings.autoUpdate && !manual) return;
+  updating = true;
+  const status = t => { $('updStatus').textContent = t; $('updNote').textContent = t || 'Checks GitHub for a new version when the app opens'; };
+  status('Checking for updates...');
+  try{
+    // newest commit on main, then that commit's version file (pinned to the commit, so never stale)
+    const { sha } = await getURL(`https://api.github.com/repos/${REPO}/commits/main`, 6000);
+    const raw = `https://raw.githubusercontent.com/${REPO}/${sha}/game/`;
+    const { version } = await getURL(raw + 'version.json', 6000);
+    if(!(version > GAME_VERSION)){ status(''); if(manual) toast(`You have the newest version (${GAME_VERSION})!`); return; }
+    status(`Downloading version ${version}...`);
+    const html = await getURL(raw + 'pet.html', 120000, true);
+    // make sure we got a whole, real game file before swapping it in
+    if(!html.includes('POCKET_PAL_GAME') || !html.includes(`GAME_VERSION = ${version};`) || !html.trim().endsWith('</html>'))
+      throw new Error('The download looked broken');
+    status(`Installing version ${version}...`);
+    saveNow();                                       // the app reloads with your latest save
+    BRIDGE.postMessage({ cmd:'update', html, version });
+  }catch(e){
+    console.warn('update check failed', e);
+    status('');
+    if(manual) toast("Couldn't reach GitHub. Are you online?");
+  }finally{ updating = false; }
+}
+$('checkNow').onclick = ()=>{ sfx.click(); checkForUpdate(true); };
+
+$('mSettings').onclick = ()=>{ sfx.click(); openSettings(); };
+$('titleSettings').onclick = ()=>{ sfx.click(); openSettings(); };
+
+/* FILE MANAGER: the Mac app builds a tidy folder and opens it in Finder:
+   Pets/ (one .json per pet), Custom Models/<name>/ (your files + a pet pack), Backgrounds/ */
+const fileSafe = s => String(s).replace(/[\/:*?"<>|]/g,'').replace(/\.\.+/g,'.').trim().slice(0,40) || 'Untitled';
+function uniqueNames(list){ const seen = {}; return list.map(n=>{ const k = n.toLowerCase(); seen[k] = (seen[k]||0)+1; return seen[k]>1 ? n.replace(/(\.[^.]+)?$/, ` ${seen[k]}$1`) : n; }); }
+$('openFolder').onclick = ()=>{
+  sfx.click();
+  if(!BRIDGE){ popup('Mac app only', 'The pets folder lives on your Mac, so this button works in the Pocket Pal app.', [['OK','cyan',null]]); return; }
+  const petNames = uniqueNames(pets.map(p=>fileSafe(p.name)+'.json'));
+  const petFiles = pets.map((p,i)=>({ name:petNames[i], text:JSON.stringify({ ...p, kind:speciesLabel(p) }, null, 2) }));
+  const dirs = uniqueNames(customs.map(c=>fileSafe(c.label||'Custom')));
+  const models = customs.map((c,i)=>({
+    dir: dirs[i],
+    files: Object.entries(c.files).map(([name,key])=>({ name, key })),
+    // a pet pack, so the folder can be dropped back into Pocket Pal
+    pack: JSON.stringify({ name:c.label, model:c.main, texture:c.tex||undefined, background:c.bg||undefined, scale:c.scale, rotation:c.rot, yOffset:c.y, animations:c.anims }, null, 2)
+  }));
+  const bgNames = uniqueNames(userBgs.map(b=>fileSafe(b.name)+'.'+extOf(b.key)));
+  const bgs = userBgs.map((b,i)=>({ name:bgNames[i], key:b.key }));
+  BRIDGE.postMessage({ cmd:'open', pets:petFiles, models, bgs });
+  toast('Opening your Pocket Pal folder...');
+};
+$('mTitle').onclick = ()=>{ sfx.click(); $('gameMenu').classList.remove('show'); refreshMenu(); show('menu'); };
+$('mNew').onclick = ()=>{ $('gameMenu').classList.remove('show'); confirmNewPet(); };
+$('mAdd').onclick = ()=>{ sfx.click(); $('gameMenu').classList.remove('show'); startSetup(); };
+
+/* =========================================================
+   CUSTOM UPLOAD SCREEN
+   Drop in a model (+ skins, backgrounds or a .json pet pack),
+   tweak it with the sliders, then name it like any other pet.
+   ========================================================= */
+let customStage = null;
+const MODEL_EXT = ['glb','gltf','fbx','obj'], IMG_EXT = ['png','jpg','jpeg','webp'];
+function newEdit(){
+  return { id:'c'+Date.now().toString(36)+Math.floor(Math.random()*999), label:'', files:{}, bufs:{}, main:'', mainType:'',
+           tex:'', bg:'', scale:1, rot:0, y:0, anims:{}, rev:1, isNew:true };
+}
+function openCustom(){
+  cEdit = newEdit();
+  $('cNote').textContent = '';
+  drawCustomForm(); show('sCustom');
+  setTimeout(()=>{ customStage.resize(); refreshCustomPreview(); }, 0);
+}
+function editCustom(def){
+  cEdit = { ...def, files:{...def.files}, anims:{...(def.anims||{})}, bufs:{}, isNew:false };
+  drawCustomForm(); refreshCustomPreview();
+}
+function addFileBuf(name, buf){
+  name = safeKey(name);
+  cEdit.bufs[name] = buf;
+  cEdit.files[name] = cEdit.id + '__' + name;
+  return name;
+}
+// a pet pack is a .json file that describes the character (files can be inside it as data: links)
+const MIME_EXT = { 'model/gltf-binary':'glb', 'model/gltf+json':'gltf', 'image/png':'png', 'image/jpeg':'jpg', 'image/webp':'webp', 'application/octet-stream':'bin' };
+function readPack(text, fileName){
+  let j; try{ j = JSON.parse(text); }catch(e){ $('cNote').textContent = `${fileName} is not a JSON file I can read.`; return; }
+  if(j.asset && (j.scenes || j.meshes)){ addFileBuf(fileName, new TextEncoder().encode(text).buffer); return; }   // it is really a .gltf model
+  const take = (v, fallback) => {
+    if(typeof v !== 'string' || !v) return '';
+    if(v.startsWith('data:')){
+      const m = v.match(/^data:([^;,]*)(;base64)?,(.*)$/s); if(!m) return '';
+      const buf = m[2] ? b64ToBuffer(m[3]) : new TextEncoder().encode(decodeURIComponent(m[3])).buffer;
+      let ext = MIME_EXT[m[1]] || extOf(fallback);
+      if(ext==='bin' && /model/.test(fallback)) ext = 'glb';
+      return addFileBuf(fallback.includes('.') ? fallback : fallback+'.'+ext, buf);
+    }
+    return safeKey(baseName(v));           // a file name that was uploaded next to the .json
+  };
+  if(j.files && typeof j.files === 'object') Object.entries(j.files).forEach(([n,v])=> take(v, n));
+  if(j.name || j.label) cEdit.label = String(j.label || j.name).slice(0,16);
+  if(j.model) cEdit.forceMain = take(j.model, 'pack_model');
+  if(j.texture || j.skin) cEdit.tex = take(j.texture || j.skin, 'pack_skin');
+  if(j.background) cEdit.bg = take(j.background, 'pack_background');
+  if(j.scale != null) cEdit.scale = +j.scale || 1;
+  if(j.rotation != null) cEdit.rot = +j.rotation || 0;
+  if(j.yOffset != null) cEdit.y = +j.yOffset || 0;
+  if(j.animations && typeof j.animations === 'object') Object.assign(cEdit.anims, j.animations);
+}
+async function addFiles(list){
+  const before = cEdit.main;
+  for(const f of list){
+    const ext = extOf(f.name);
+    if(ext==='json'){ readPack(await f.text(), f.name.toLowerCase()); continue; }
+    if(![...MODEL_EXT, ...IMG_EXT, 'bin'].includes(ext)){ $('cNote').textContent = `${f.name} is not a file type Pocket Pal knows.`; continue; }
+    addFileBuf(f.name, await f.arrayBuffer());
+  }
+  // pick the main model file
+  const names = Object.keys(cEdit.files);
+  if(cEdit.forceMain && cEdit.files[cEdit.forceMain]){ cEdit.main = cEdit.forceMain; cEdit.mainType = extOf(cEdit.main); }
+  else for(const ext of MODEL_EXT){ const n = names.find(n=>extOf(n)===ext); if(n){ cEdit.main = n; cEdit.mainType = ext; break; } }
+  if(!cEdit.label && cEdit.main) cEdit.label = cEdit.main.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').slice(0,16);
+  if(cEdit.main !== before) cEdit.anims = { ...cEdit.anims };
+  cEdit.rev++;
+  drawCustomForm(); refreshCustomPreview();
+}
+function drawCustomForm(){
+  const names = Object.keys(cEdit.files), imgs = names.filter(n=>IMG_EXT.includes(extOf(n)));
+  $('fileList').innerHTML = names.map(n=>{
+    const k = MODEL_EXT.includes(extOf(n)) ? 'model' : IMG_EXT.includes(extOf(n)) ? 'img' : '';
+    return `<span class="fchip ${k}">${n===cEdit.main?'⭐ ':''}${n}</span>`;
+  }).join('');
+  $('cTex').innerHTML = `<option value="">Model's own colors</option>` + imgs.map(n=>`<option ${n===cEdit.tex?'selected':''}>${n}</option>`).join('');
+  $('cBg').innerHTML = `<option value="">Space island</option>` + imgs.map(n=>`<option ${n===cEdit.bg?'selected':''}>${n}</option>`).join('');
+  $('cLabel').value = cEdit.label;
+  $('cScale').value = cEdit.scale; $('cRot').value = cEdit.rot; $('cY').value = cEdit.y;
+  $('cNext').disabled = !cEdit.main;
+  $('mineBox').style.display = customs.length ? '' : 'none';
+  $('mineList').innerHTML = customs.map(c=>`<button class="tab ${c.id===cEdit.id?'on':''}" data-cid="${c.id}">${c.label||'Custom'}</button>`).join('')
+    + `<button class="tab add" id="cNew">+ New</button>`;
+  $('mineList').querySelectorAll('[data-cid]').forEach(b=>b.onclick=()=>{ sfx.click(); editCustom(customs.find(c=>c.id===b.dataset.cid)); });
+  $('cNew').onclick = ()=>{ sfx.click(); cEdit = newEdit(); $('cNote').textContent=''; drawCustomForm(); refreshCustomPreview(); };
+}
+function drawAnimSelects(actor){
+  const names = actor.clipNames || [];
+  $('animBox').style.display = names.length ? '' : 'none';
+  if(!names.length) return;
+  const opts = cur => `<option value="">(none)</option>` + names.map(n=>`<option ${n===cur?'selected':''}>${n}</option>`).join('');
+  [['aIdle','idle'],['aWalk','walk'],['aHappy','happy'],['aSleepA','sleep']].forEach(([id,k])=>{
+    if(cEdit.anims[k] === undefined) cEdit.anims[k] = actor.clipMap[k] || '';
+    $(id).innerHTML = opts(cEdit.anims[k]);
+  });
+}
+let previewTimer = null;
+function refreshCustomPreview(){
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(()=>{
+    if(!cEdit.main){ customStage.setPet(null); $('customMsg').textContent = 'Upload a 3D model to see it here'; return; }
+    $('customMsg').textContent = 'Loading your model...';
+    customStage.setPet({ species:'upload', customId:cEdit.id, gender:'nb', age:'adult', color:'orig', acc:{} });
+    const a = customStage.actor; a.st.face = .5;
+    a.onReady = act => { $('customMsg').textContent = act.clipNames.length ? `${act.clipNames.length} animation${act.clipNames.length>1?'s':''} found` : 'No animations found, so Pocket Pal will animate it for you'; drawAnimSelects(act); };
+    a.onError = msg => { $('customMsg').textContent = msg; };
+  }, 120);
+}
+// file picker + drag and drop
+$('fileIn').onchange = e => { addFiles([...e.target.files]); e.target.value = ''; };
+const dz = $('dropZone');
+['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev, e=>{ e.preventDefault(); dz.classList.add('over'); }));
+['dragleave','drop'].forEach(ev=>dz.addEventListener(ev, e=>{ e.preventDefault(); dz.classList.remove('over'); }));
+dz.addEventListener('drop', e=>{ if(e.dataTransfer.files.length) addFiles([...e.dataTransfer.files]); });
+// form controls
+$('cLabel').oninput = e => { cEdit.label = e.target.value; };
+$('cTex').onchange = e => { cEdit.tex = e.target.value; refreshCustomPreview(); };
+$('cBg').onchange = e => { cEdit.bg = e.target.value; };
+$('cScale').oninput = e => { cEdit.scale = +e.target.value; refreshCustomPreview(); };
+$('cRot').oninput = e => { cEdit.rot = +e.target.value; refreshCustomPreview(); };
+$('cY').oninput = e => { cEdit.y = +e.target.value; refreshCustomPreview(); };
+[['aIdle','idle'],['aWalk','walk'],['aHappy','happy'],['aSleepA','sleep']].forEach(([id,k])=>{
+  $(id).onchange = e => { cEdit.anims[k] = e.target.value; refreshCustomPreview(); };
+});
+$('cNext').onclick = async ()=>{
+  if(!cEdit.main) return;
+  sfx.click();
+  cEdit.label = (cEdit.label || 'Custom').trim().slice(0,16) || 'Custom';
+  $('cNext').disabled = true; $('cNote').textContent = 'Saving your character...';
+  for(const [name, buf] of Object.entries(cEdit.bufs)) await Store.put(cEdit.files[name], buf);
+  const { bufs, isNew, forceMain, ...def } = cEdit;
+  const i = customs.findIndex(c=>c.id===def.id);
+  if(i >= 0) customs[i] = def; else customs.push(def);
+  // pets that already use this character pick up the changes too
+  saveNow();
+  $('cNote').textContent = ''; $('cNext').disabled = false;
+  draft.customId = def.id; draft.color = 'orig';
+  goGender();
+};
+
+/* =========================================================
+   PET SHOP
+   ========================================================= */
+let shopStage = null, shopCat = 'acc';
+function openShop(){
+  if(!pet) return;
+  $('gameMenu').classList.remove('show');
+  show('shop'); drawShop();
+  setTimeout(()=>{ shopStage.resize(); shopPreview(); }, 0);
+}
+function shopPreview(jump){
+  shopStage.setPet(pet);
+  if(shopStage.actor){ shopStage.actor.st.face = .45; shopStage.actor.setMood(moodOf(pet), false); if(jump) shopStage.actor.play('jump'); }
+  paintBg($('shopBg'), bgFor(pet));
+}
+function spend(cost){
+  if(wallet < cost){ toast(`You need 🪙 ${cost - wallet} more. Play Star Catch to earn coins!`); sfx.bad(); return false; }
+  wallet -= cost; sfx.coin(); return true;
+}
+// which accessory spots a pet has (uploaded models only get hats and floaties)
+const fitsSlot = (p, slot) => p.species!=='upload' || slot==='head' || slot==='float';
+function drawShop(){
+  $('shopCoins').textContent = wallet;
+  // pet switcher
+  $('shopTabs').innerHTML = pets.map((p,i)=>`<button class="tab ${i===active?'on':''}" data-si="${i}"><span class="tf">${p.sleeping?'💤':FACES[moodOf(p)]}</span>${p.name}</button>`).join('');
+  $('shopTabs').querySelectorAll('[data-si]').forEach(b=>b.onclick=()=>{ active = +b.dataset.si; pet = pets[active]; sfx.click(); saveNow(); drawShop(); shopPreview(); });
+  document.querySelectorAll('#shopCats [data-cat]').forEach(b=>b.classList.toggle('on', b.dataset.cat===shopCat));
+  const shelf = $('shelf'); let html = '';
+  if(shopCat==='acc'){
+    pet.acc = pet.acc || {};
+    Object.entries(SLOTS).forEach(([slot, title])=>{
+      html += `<div class="slotHead">${title}</div>`;
+      ACCS.filter(a=>a.slot===slot).forEach(a=>{
+        const on = pet.acc[slot]===a.id, have = owned.has(a.id), fits = fitsSlot(pet, slot);
+        const tag = !fits ? "Won't fit" : on ? 'Wearing' : have ? 'Wear' : `🪙 ${a.price}`;
+        html += `<button class="item ${on?'on':''} ${have?'owned':''} ${fits?'':'locked'}" data-acc="${a.id}" ${fits?'':'disabled'}><span class="e">${a.e}</span>${a.name}<span class="tag2">${tag}</span></button>`;
+      });
+    });
+  }
+  if(shopCat==='make'){
+    const colors = SPECIES[pet.species].colors;
+    const sw = (list, cur, key, price) => list.map(c => c==='orig'
+      ? `<button class="sw orig ${cur===c?'on':''}" data-mk="${key}" data-v="orig" data-price="${price}" title="Original"></button>`
+      : `<button class="sw ${cur===c?'on':''}" style="background:${c}" data-mk="${key}" data-v="${c}" data-price="${price}"></button>`).join('');
+    html += `<div class="makeover">
+      <div class="slotHead">Rename (free)</div>
+      <div class="namerow"><input class="nameField" id="renameIn" maxlength="14" value="${pet.name.replace(/"/g,'&quot;')}"><button class="btn cyan small" id="renameBtn">Rename</button></div>
+      <div class="slotHead">${pet.species==='human'?'Skin':pet.species==='upload'?'Tint':'Fur color'} · 🪙 10</div>
+      <div class="swatches">${sw(colors, pet.color, 'color', 10)}</div>
+      ${pet.species==='human' ? `<div class="slotHead">Hair · 🪙 5</div><div class="swatches">${sw(HAIR, pet.hair, 'hair', 5)}</div>
+      <div class="slotHead">Shirt · 🪙 5</div><div class="swatches">${sw(SHIRTS, pet.shirt, 'shirt', 5)}</div>` : ''}
+    </div>`;
+  }
+  if(shopCat==='pot'){
+    html += POTIONS.map(po=>`<button class="item" data-pot="${po.id}"><span class="e">${po.e}</span>${po.name}<small>${po.note}</small><span class="tag2">🪙 ${po.price}</span></button>`).join('');
+  }
+  if(shopCat==='bg'){
+    const cur = bgFor(pet), def = pet.species==='upload' ? null : SPECIES[pet.species].scene;
+    html += `<div class="slotHead">Places</div>`;
+    html += BGS.map(b=>{ const have = owned.has('bg:'+b.id) || b.id===def;
+      return `<button class="item ${cur===b.id?'on':''} ${have?'owned':''}" data-bg="${b.id}"><span class="e">${b.e}</span>${b.name}<span class="tag2">${cur===b.id?'Showing':have?'Use':'🪙 15'}</span></button>`; }).join('');
+    html += `<div class="slotHead">Your pictures (free)</div>`;
+    html += userBgs.map(b=>`<button class="item ${cur==='up:'+b.key?'on':''} owned" data-bg="up:${b.key}"><span class="e">🖼️</span>${b.name}<span class="tag2">${cur==='up:'+b.key?'Showing':'Use'}</span></button>`).join('');
+    html += `<button class="item" id="bgUpload"><span class="e">📤</span>Upload a picture<small>.png or .jpg</small><span class="tag2">Free</span></button>`;
+  }
+  shelf.innerHTML = html;
+
+  // clicks
+  shelf.querySelectorAll('[data-acc]').forEach(b=>b.onclick=()=>{
+    const a = ACCS.find(x=>x.id===b.dataset.acc);
+    if(!owned.has(a.id)){ if(!spend(a.price)) return; owned.add(a.id); toast(`You bought the ${a.name}!`); }
+    else sfx.click();
+    pet.acc[a.slot] = pet.acc[a.slot]===a.id ? null : a.id;     // tap again to take it off
+    saveNow(); drawShop(); shopPreview(true);
+  });
+  shelf.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>{
+    const key = b.dataset.mk, v = b.dataset.v;
+    if(pet[key]===v) return;
+    if(!spend(+b.dataset.price)) return;
+    pet[key] = v; saveNow(); drawShop(); shopPreview(true);
+  });
+  if($('renameBtn')) $('renameBtn').onclick = ()=>{
+    const n = $('renameIn').value.trim().slice(0,14);
+    if(!n){ toast('Type a name first!'); return; }
+    pet.name = n; sfx.happy(); toast(`Say hi to ${n}!`); saveNow(); drawShop();
+  };
+  shelf.querySelectorAll('[data-pot]').forEach(b=>b.onclick=()=>{
+    const po = POTIONS.find(x=>x.id===b.dataset.pot);
+    const ai = AGE_ORDER.indexOf(pet.age);
+    if(po.id==='grow' && ai>=AGE_ORDER.length-1){ toast(`${pet.name} is already an elder!`); return; }
+    if(po.id==='young' && ai<=0){ toast(`${pet.name} is already a baby!`); return; }
+    if(!spend(po.price)) return;
+    if(po.id==='joy') change('happy', 40);
+    if(po.id==='belly') change('food', 50);
+    if(po.id==='heal') change('health', 60);
+    if(po.id==='grow') pet.age = AGE_ORDER[ai+1];
+    if(po.id==='young') pet.age = AGE_ORDER[ai-1];
+    if(po.id==='rainbow'){ const list = SPECIES[pet.species].colors.filter(c=>c!==pet.color && c!=='orig'); pet.color = pick(list); }
+    toast(`${pet.name} drank the ${po.name}!`);
+    saveNow(); drawShop(); shopPreview(true);
+  });
+  shelf.querySelectorAll('[data-bg]').forEach(b=>b.onclick=()=>{
+    const id = b.dataset.bg, base = pet.species==='upload' ? null : SPECIES[pet.species].scene;
+    if(!id.startsWith('up:') && id!==base && !owned.has('bg:'+id)){ if(!spend(15)) return; owned.add('bg:'+id); }
+    else sfx.click();
+    pet.bg = id; saveNow(); drawShop(); shopPreview();
+  });
+  if($('bgUpload')) $('bgUpload').onclick = ()=> $('bgFileIn').click();
+}
+$('bgFileIn').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if(!f) return;
+  const key = 'bg_' + Date.now().toString(36) + '.' + extOf(f.name);
+  await Store.put(key, await f.arrayBuffer());
+  userBgs.push({ key, name:f.name.replace(/\.[^.]+$/,'').slice(0,16) });
+  pet.bg = 'up:' + key; sfx.happy();
+  saveNow(); drawShop(); shopPreview();
+};
+document.querySelectorAll('#shopCats [data-cat]').forEach(b=>b.onclick=()=>{ shopCat = b.dataset.cat; sfx.click(); drawShop(); });
+$('shopBack').onclick = ()=>{ sfx.click(); enterPet(); };
+$('mShop').onclick = ()=>{ sfx.click(); openShop(); };
+
+/* quick actions from the Mac menu bar menu */
+window.ppMenu = function(action, i){
+  const p = pets[i|0]; if(!p || !mainStage) return;
+  // the pet on screen gets the full animation
+  if(p===pet && $('pet').classList.contains('show')){
+    if(action==='snack' && !pet.sleeping) feed(FOODS[0]);
+    if(action==='pet'){ lastPet = 0; cuddle(); }
+    if(action==='sleep') $('aSleep').click();
+  } else {
+    // a pet that is not on screen: just change its stats
+    if(action==='snack' && !p.sleeping){ if(p.food>95) p.health=clamp(p.health-4,0,100); else { p.food=clamp(p.food+15,0,100); p.happy=clamp(p.happy+2,0,100); } }
+    if(action==='pet' && !p.sleeping) p.happy=clamp(p.happy+4,0,100);
+    if(action==='sleep') p.sleeping=!p.sleeping;
+  }
+  saveNow();
+};
+
+/* =========================================================
+   LOOPS
+   ========================================================= */
+// game clock: once a second
+let tickCount=0;
+setInterval(()=>{
+  if(!pets.length) return;
+  const now=Date.now();
+  pets.forEach(p=>{ simulate(p,(now-p.last)/1000); p.last=now; });
+  if($('pet').classList.contains('show')){
+    render();
+    if(++tickCount % 25 === 0 && !pet.sleeping && Math.random()<.6) say(pick(LINES[moodOf(pet)]));
+  }
+  if(Date.now() % 2000 < 1000) saveNow();
+},1000);
+
+// drawing clock: every screen frame
+let lastFrame = performance.now();
+function frame(now){
+  const dt = Math.min(.05, (now-lastFrame)/1000); lastFrame = now;
+  if(mainStage && $('pet').classList.contains('show')){ mainStage.tick(dt); trackOverlays(); }
+  if(previewStage && $('sName').classList.contains('show')) previewStage.tick(dt);
+  if(customStage && $('sCustom').classList.contains('show')) customStage.tick(dt);
+  if(shopStage && $('shop').classList.contains('show')){ $('shopCoins').textContent = wallet; shopStage.tick(dt); }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- start up ---------- */
+loadSave();
+pets.forEach(p=>catchUp(p));
+saveNow();
+checkForUpdate(false);          // right away, while the 3D models load
+(async ()=>{
+  try{
+    await loadModels();
+    mainStage = new Stage($('stage3d'), { wander:true });
+    previewStage = new Stage($('previewStage'), { dist:2.9, camY:.7, lookY:.42 });
+    customStage = new Stage($('customStage'), { dist:2.9, camY:.7, lookY:.42 });
+    shopStage = new Stage($('shopStage'), { dist:2.1, camY:.8, lookY:.52 });
+    snapStage = new Stage(document.createElement('div'), { snap:true, dist:2.6, camY:.7, lookY:.45 });
+    Object.keys(SAMPLE).forEach(k => thumbs[k] = snapStage.snapshot(SAMPLE[k]));
+    snapStage.setPet(null);
+    $('parade').innerHTML = Object.keys(SAMPLE).map(k=>`<img src="${thumbs[k]}" alt="">`).join('');
+    refreshMenu();
+    requestAnimationFrame(frame);
+  }catch(err){
+    console.error(err);
+    $('playBtn').textContent = 'Could not load 3D :(';
+    $('parade').textContent = String(err && err.message || err);
+  }
+})();
+</script>
+</body>
+</html>
