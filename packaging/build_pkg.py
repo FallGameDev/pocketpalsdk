@@ -15,7 +15,7 @@ from xml.sax.saxutils import escape
 APP_DIR = sys.argv[1] if len(sys.argv) > 1 else "app/Pocket Pal.app"
 OUT = sys.argv[2] if len(sys.argv) > 2 else "Pocket Pal Installer.pkg"
 IDENT = "com.herestudios.pocketpal"
-VERSION = "2.0"
+VERSION = "3.0"
 
 POSTINSTALL = r'''#!/bin/bash
 # Pocket Pal postinstall: runs as root after you click Install

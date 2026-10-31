@@ -107,6 +107,7 @@ button{font-family:inherit;cursor:pointer}
 .scene .dim{position:absolute;inset:0;background:#05031a;opacity:0;transition:opacity .8s;pointer-events:none}
 .scene.sleeping .dim{opacity:.45}
 #petWrap{position:absolute;pointer-events:none}   /* invisible box that follows the 3D pet (for effects) */
+.ghostTag{position:absolute;transform:translate(-50%,-100%);font-size:13px;font-weight:900;padding:3px 9px;color:#e6f7ff;background:#5aa9d655;border:3px solid #bfe9ff99;border-radius:12px;pointer-events:none;z-index:3;white-space:nowrap;text-shadow:0 2px 0 var(--ink)}
 .emote{position:absolute;transform:translate(-50%,-100%);font-size:30px;line-height:1;padding:4px 8px;background:var(--white);border:4px solid var(--ink);border-radius:16px;box-shadow:0 4px 0 var(--ink);pointer-events:none;z-index:3;transition:opacity .3s}
 .bubble{position:absolute;transform:translate(-50%,-100%) scale(0);transform-origin:50% 100%;background:var(--white);color:var(--ink);border:4px solid var(--ink);border-radius:20px;box-shadow:0 5px 0 var(--ink);padding:10px 16px;font-size:18px;max-width:70%;white-space:nowrap;text-align:center;transition:transform .2s cubic-bezier(.3,1.6,.5,1);z-index:4;pointer-events:none}
 .bubble.show{transform:translate(-50%,-100%) scale(1)}
@@ -332,6 +333,7 @@ button{font-family:inherit;cursor:pointer}
       <div id="stage3d"></div>
       <div id="petWrap"></div>
       <div class="who"><b id="petName">Pal</b><small id="petInfo">Cat · Day 1</small></div>
+      <div id="ghostTags"></div>
       <div class="emote" id="emote">😊</div>
       <div class="bubble" id="bubble">Hi!</div>
       <div class="dim"></div>
@@ -10486,21 +10488,37 @@ class Stage {
   }
   setPet(p){
     if(this.actor){ this.scene.remove(this.actor.root); this.actor.dispose(); }
+    (this.ghosts||[]).forEach(g=>{ this.scene.remove(g.root); g.dispose(); });
+    this.ghosts = [];
     this.actor = p ? new PetActor(p) : null;
     if(this.actor){ this.actor.wander = !!this.opts.wander && settings.wander; this.scene.add(this.actor.root); }
+    // ghosts of pets that died float around in here, in their old bodies
+    if(p && this.opts.ghosts) (p.ghosts||[]).forEach((g,k)=>{
+      const a = new PetActor({ ...g, acc:{}, sleeping:false });
+      a.isGhost = true; a.wander = true; a.ghostName = g.name;
+      a.st.x = k%2 ? -.65 : .65; a.st.wanderIn = 1 + k;
+      a.setMood('happy', false);
+      ghostify(a); a.onReady = () => ghostify(a);
+      this.scene.add(a.root); this.ghosts.push(a);
+    });
   }
   tick(dt){
     if(!this.actor) return;
     this.actor.update(dt);
+    this.ghosts.forEach((g,k)=>{
+      g.update(dt);
+      g.root.position.y += .28 + Math.sin(g.time*1.7 + k*2)*.07;     // floating
+      g.root.rotation.z = Math.sin(g.time*1.1 + k)*.08;
+    });
     const a = this.actor, s = a.size.w * 1.3 * (a.inner.scale.x || 1);
     this.shadow.position.x = a.root.position.x;
     this.shadow.scale.set(s*(a.pose.lie>.5?1.4:1), s*.7, 1);
     this.shadow.material.opacity = 1 - a.root.position.y*1.5;
     this.renderer.render(this.scene, this.camera);
   }
-  // screen position (pixels inside the element) of a point on the pet
-  project(y){
-    const a = this.actor; if(!a) return {x:0,y:0};
+  // screen position (pixels inside the element) of a point on the pet (or on another actor)
+  project(y, a = this.actor){
+    if(!a) return {x:0,y:0};
     const v = new THREE.Vector3(0, y, 0).applyMatrix4(a.root.matrixWorld).project(this.camera);
     return { x:(v.x+1)/2*this.el.clientWidth, y:(1-v.y)/2*this.el.clientHeight };
   }
@@ -10526,6 +10544,7 @@ let wallet = 10;              // coins are shared by all your pets
 let settings = { wander:true, autoUpdate:true };   // sound lives in soundOn
 let owned = new Set();        // accessories and backgrounds you bought
 let userBgs = [];             // backgrounds you uploaded: { key, name }
+let spirits = [];             // ghosts with no pet to haunt (they move into the next pet you adopt)
 function loadSave(){
   try{
     const raw = IN_APP ? window.__PP_SAVE : JSON.parse(localStorage.getItem('pocketpal')||'null');
@@ -10538,6 +10557,7 @@ function loadSave(){
       delete settings.speed; delete settings.menubar;      // pets always run at normal speed now
       customs = Array.isArray(raw.customs) ? raw.customs : [];
       userBgs = Array.isArray(raw.userBgs) ? raw.userBgs : [];
+      spirits = Array.isArray(raw.spirits) ? raw.spirits : [];
       owned = new Set(raw.owned || []);
       // older saves kept coins on each pet; add them up into one wallet
       wallet = typeof raw.wallet === 'number' ? raw.wallet : (pets.reduce((t,p)=>t+(p.coins||0),0) || 10);
@@ -10547,7 +10567,7 @@ function loadSave(){
   pet = pets[active] || null;
 }
 function saveNow(){
-  const data = { pets, active, sound:soundOn, settings, wallet, owned:[...owned], userBgs,
+  const data = { pets, active, sound:soundOn, settings, wallet, owned:[...owned], userBgs, spirits,
     customs: customs.map(({ bufs, isNew, ...keep }) => keep) };
   if(!IN_APP){ try{ localStorage.setItem('pocketpal', JSON.stringify(data)); }catch(e){} }
   // the Mac app reads this title: one menu bar face per pet + the save file text
@@ -10611,6 +10631,7 @@ function refreshMenu(){
   $('mAdd').style.display = pets.length < MAX_PETS ? '' : 'none';
   const t = soundOn ? '🔊 Sound: On' : '🔇 Sound: Off';
   $('soundBtn').textContent = t;
+  if(spirits.length && !updating) $('updStatus').textContent = `👻 ${spirits.map(x=>x.name).join(', ')} ${spirits.length>1?'are':'is'} waiting for a new pet to haunt`;
 }
 $('playBtn').onclick = ()=>{ sfx.happy(); pet ? enterPet() : startSetup(); };
 $('newPetBtn').onclick = ()=>{ sfx.click(); startSetup(); };
@@ -10666,7 +10687,7 @@ $('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') $('doneBtn')
 $('doneBtn').onclick = ()=>{
   const name = $('nameInput').value.trim() || pick(NAMES[draft.species]);
   const now = Date.now();
-  pets.push({ ...draft, name, happy:80, food:75, health:100, acc:{}, sleeping:false, born:now, last:now });
+  pets.push({ ...draft, name, happy:80, food:75, health:100, acc:{}, sleeping:false, born:now, last:now, ghosts:spirits.splice(0) });
   active = pets.length - 1; pet = pets[active];
   $('nameInput').value='';
   saveNow(); sfx.happy(); enterPet();
@@ -10693,7 +10714,7 @@ function simulate(p, sec){
   if(p.food > 50 && p.happy > 40) dh += 0.008 * (p.age==='elder' ? .8 : 1);
   if(p.sleeping) dh += 0.03;
   p.health += sec * dh;
-  p.food=clamp(p.food,0,100); p.happy=clamp(p.happy,0,100); p.health=clamp(p.health,5,100);  // no pet ever dies
+  p.food=clamp(p.food,0,100); p.happy=clamp(p.happy,0,100); p.health=clamp(p.health,0,100);  // 0 health = the pet dies
 }
 // time passes for every pet while the app is closed (up to 12 hours)
 function catchUp(p){
@@ -10709,7 +10730,7 @@ function switchPet(i){
 }
 // the row of pet buttons in the top bar
 function drawTabs(){
-  const html = pets.map((p,i)=>`<button class="tab ${i===active?'on':''}" data-pi="${i}" title="${p.name}"><span class="tf">${p.sleeping?'💤':FACES[moodOf(p)]}</span>${p.name}</button>`).join('')
+  const html = pets.map((p,i)=>`<button class="tab ${i===active?'on':''}" data-pi="${i}" title="${p.name}"><span class="tf">${p.sleeping?'💤':FACES[moodOf(p)]}</span>${p.name}${(p.ghosts||[]).length?' 👻':''}</button>`).join('')
     + (pets.length < MAX_PETS ? `<button class="tab add" id="addTab" title="Adopt another pet">+ New</button>` : '');
   if($('petTabs')._html === html) return;
   $('petTabs')._html = html; $('petTabs').innerHTML = html;
@@ -10735,6 +10756,7 @@ function enterPet(){
   paintBg($('sceneBg'), bg);
   $('sceneFx').innerHTML = bg==='yard' ? Array.from({length:8},()=>`<div class="firefly" style="left:${Math.random()*90}%;top:${30+Math.random()*45}%;animation-delay:${Math.random()*5}s"></div>`).join('') : '';
   mainStage.setPet(pet);
+  $('ghostTags').innerHTML = (pet.ghosts||[]).map(g=>`<div class="ghostTag">👻 ${g.name}</div>`).join('');
   show('pet'); render(true);
   if(away > 600) setTimeout(()=>say(moodOf(pet)==='happy' ? 'You are back! Yay!' : 'I missed you...'), 600);
 }
@@ -10746,7 +10768,9 @@ function render(force){
   if(mainStage.actor) mainStage.actor.setMood(m, pet.sleeping);
   $('petName').textContent = pet.name;
   const day = Math.floor((Date.now()-pet.born)/86400000)+1;
-  $('petInfo').textContent = `${AGES[pet.age].label} ${speciesLabel(pet)} · ${GENDERS[pet.gender].label} · Day ${day}`;
+  const g = pet.ghosts || [];
+  $('petInfo').textContent = `${AGES[pet.age].label} ${speciesLabel(pet)} · ${GENDERS[pet.gender].label} · Day ${day}`
+    + (pet.reborn ? ` · Reborn` : '') + (g.length ? ` · Haunted by ${g.map(x=>x.name).join(', ')} 👻` : '');
   $('moodFace').textContent = FACES[m]; $('emote').textContent = pet.sleeping ? '💤' : FACES[m];
   $('moodText').textContent = pet.sleeping ? 'Sleeping' : MOOD_TEXT[m];
   $('moodBadge').style.background = MOOD_COLOR[m];
@@ -10772,6 +10796,13 @@ function trackOverlays(){
   $('bubble').style.left = head.x+'px'; $('bubble').style.top = (head.y-46)+'px';
   const w = Math.max(60, (feet.y-head.y)*.9);
   Object.assign($('petWrap').style, { left:(head.x-w/2)+'px', top:head.y+'px', width:w+'px', height:Math.max(40,feet.y-head.y)+'px' });
+  // name tags over the ghosts
+  const tags = $('ghostTags').children;
+  st.ghosts.forEach((g,k)=>{
+    if(!tags[k]) return;
+    const pt = st.project((g.headTop || g.size.h) * g.inner.scale.x + .08, g);
+    tags[k].style.left = pt.x+'px'; tags[k].style.top = Math.max(30, pt.y)+'px';
+  });
   // floating Zzz when asleep
   if(pet && pet.sleeping && Math.random()<.02){
     const z=document.createElement('div'); z.className='zzz'; z.textContent='Z';
@@ -10920,7 +10951,7 @@ document.querySelectorAll('#settings .seg button').forEach(b=>b.onclick=()=>{
    When the Mac app opens, ask GitHub for the newest game version.
    If it is newer than this one, download it and the app swaps it in.
    ========================================================= */
-const GAME_VERSION = 2;
+const GAME_VERSION = 3;
 const REPO = 'FallGameDev/pocketpalsdk';
 async function getURL(url, ms, asText){
   const ctl = new AbortController(), t = setTimeout(()=>ctl.abort(), ms);
@@ -11251,6 +11282,86 @@ document.querySelectorAll('#shopCats [data-cat]').forEach(b=>b.onclick=()=>{ sho
 $('shopBack').onclick = ()=>{ sfx.click(); enterPet(); };
 $('mShop').onclick = ()=>{ sfx.click(); openShop(); };
 
+/* =========================================================
+   DEATH + GHOSTS
+   - When a pet's health hits 0 it dies, and its ghost moves into the pet
+     to its right (or the left if it was last).
+   - When a haunted pet dies, the oldest ghost inside takes over its body:
+     the old pet comes back, with its own name, in the new body.
+   - The pet that just died always becomes a ghost too, so the chain goes on.
+   ========================================================= */
+const spiritOf = p => ({ name:p.name, gender:p.gender, born:p.born, species:p.species, color:p.color, customId:p.customId,
+  customType:p.customType, hair:p.hair, shirt:p.shirt, age:p.age, diedAt:Date.now() });
+const news = [];
+function processDeaths(){
+  const watching = pet;
+  let changed = false;
+  for(let guard=0; guard<20; guard++){
+    const i = pets.findIndex(p=>p.health <= 0);
+    if(i < 0) break;
+    changed = true;
+    const dead = pets[i], spirit = spiritOf(dead), ghosts = dead.ghosts || [];
+    if(ghosts.length){
+      // the oldest ghost moves into the body and comes back to life
+      const g = ghosts[0];
+      const reborn = { species:dead.species, color:dead.color, customId:dead.customId, customType:dead.customType,
+        hair:dead.hair, shirt:dead.shirt, age:dead.age, acc:dead.acc||{}, bg:dead.bg,
+        name:g.name, gender:g.gender, born:g.born, reborn:true,
+        happy:70, food:70, health:60, sleeping:false, last:Date.now(), ghosts:ghosts.slice(1) };
+      pets[i] = reborn;
+      if(dead===watching) pet = reborn;
+      // the pet that died haunts the next pet (or its own old body if it was the only one)
+      const host = pets[i+1] || pets[i-1] || reborn;
+      host.ghosts = [...(host.ghosts||[]), spirit];
+      news.push({ title:`${dead.name} died 💀`,
+        body:`But ${g.name}'s spirit took over ${dead.name}'s body! ${g.name} is back as a ${speciesLabel(reborn)}. ${dead.name}'s ghost now haunts ${host.name}.` });
+    } else {
+      pets.splice(i, 1);
+      const host = pets[i] || pets[i-1];            // the pet to the right moved into slot i
+      if(host){
+        host.ghosts = [...(host.ghosts||[]), spirit];
+        news.push({ title:`${dead.name} died 💀`, body:`${dead.name}'s ghost moved in with ${host.name}. If ${host.name} ever dies, ${dead.name} will come back in ${host.name}'s body.` });
+      } else {
+        spirits.push(spirit);
+        news.push({ title:`${dead.name} died 💀`, body:`${dead.name}'s ghost is waiting. Adopt a new pet and ${dead.name} will haunt it.` });
+      }
+    }
+  }
+  if(!changed) return;
+  const keep = pets.indexOf(pet);
+  active = keep >= 0 ? keep : clamp(active, 0, Math.max(0, pets.length-1));
+  pet = pets[active] || null;
+  saveNow();
+  // tell the player: a Mac notification, plus a popup if the game is open
+  news.forEach(n=>{ if(BRIDGE) BRIDGE.postMessage({ cmd:'notify', title:n.title, body:n.body }); });
+  showNews();
+}
+function showNews(){
+  if(!news.length || $('popup').classList.contains('show')) return;
+  const n = news.shift();
+  sfx.bad();
+  popup(n.title, n.body, [['OK','cyan', ()=>{
+    if(news.length) return setTimeout(showNews, 200);
+    if(pet){ if($('pet').classList.contains('show') || $('shop').classList.contains('show')) enterPet(); }
+    else { mainStage && mainStage.setPet(null); refreshMenu(); show('menu'); }
+  }]]);
+}
+// makes a pet see-through and glowy
+function ghostify(a){
+  a.root.traverse(o=>{
+    if(!o.isMesh || o===a.hit) return;
+    if(o.material===outlineMat){ o.visible = false; return; }
+    if(o.userData.ghosted) return;
+    const make = m => { const g = m.clone(); g.transparent = true; g.opacity = .42; g.depthWrite = false;
+      if(g.color) g.color.lerp(new THREE.Color(0xbfe9ff), .55);
+      if(g.emissive) g.emissive.setRGB(.12,.3,.45);
+      return g; };
+    o.material = Array.isArray(o.material) ? o.material.map(make) : make(o.material);
+    o.userData.ghosted = true;
+  });
+  a.mats = [];            // ghosts don't get the sick tint
+}
+
 /* quick actions from the Mac menu bar menu */
 window.ppMenu = function(action, i){
   const p = pets[i|0]; if(!p || !mainStage) return;
@@ -11276,7 +11387,9 @@ let tickCount=0;
 setInterval(()=>{
   if(!pets.length) return;
   const now=Date.now();
-  pets.forEach(p=>{ simulate(p,(now-p.last)/1000); p.last=now; });
+  pets.forEach(p=>{ let sec=(now-p.last)/1000; while(sec>0){ simulate(p, Math.min(60,sec)); sec-=60; } p.last=now; });
+  processDeaths();
+  if(!pets.length) return;
   if($('pet').classList.contains('show')){
     render();
     if(++tickCount % 25 === 0 && !pet.sleeping && Math.random()<.6) say(pick(LINES[moodOf(pet)]));
@@ -11298,12 +11411,13 @@ function frame(now){
 /* ---------- start up ---------- */
 loadSave();
 pets.forEach(p=>catchUp(p));
+processDeaths();
 saveNow();
 checkForUpdate(false);          // right away, while the 3D models load
 (async ()=>{
   try{
     await loadModels();
-    mainStage = new Stage($('stage3d'), { wander:true });
+    mainStage = new Stage($('stage3d'), { wander:true, ghosts:true });
     previewStage = new Stage($('previewStage'), { dist:2.9, camY:.7, lookY:.42 });
     customStage = new Stage($('customStage'), { dist:2.9, camY:.7, lookY:.42 });
     shopStage = new Stage($('shopStage'), { dist:2.1, camY:.8, lookY:.52 });

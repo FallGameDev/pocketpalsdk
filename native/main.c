@@ -167,7 +167,7 @@ static void simulate(Stats *p, double sec, double hunger, BOOL elder) {
   if (p->food > 50 && p->happy > 40) dh += 0.008 * (elder ? .8 : 1);
   if (p->sleeping) dh += 0.03;
   p->health += sec * dh;
-  p->food = clampd(p->food, 0, 100); p->happy = clampd(p->happy, 0, 100); p->health = clampd(p->health, 5, 100);
+  p->food = clampd(p->food, 0, 100); p->happy = clampd(p->happy, 0, 100); p->health = clampd(p->health, 0, 100);
 }
 static const char *moodOf(Stats s) {
   if (s.health < 35) return "hurt";
@@ -220,18 +220,18 @@ static void didClick(id self, SEL _cmd, id center, id response, void *handler) {
 
 /* One alert per problem: hungry (food < 30), sad (happiness < 35), sick (health < 35).
    It goes off again after 3 hours, or after the pet got better and then bad again. */
-static double alertAt[MAX_PETS][3];
-static BOOL alertOn[MAX_PETS][3];
+static double alertAt[MAX_PETS][4];
+static BOOL alertOn[MAX_PETS][4];
 static char alertName[MAX_PETS][64];
 static void checkAlerts(int i, const char *name, Stats s, double now) {
   if (strcmp(alertName[i], name)) {                 // a different pet is in this slot now
     strncpy(alertName[i], name, 63); alertName[i][63] = 0;
-    for (int k = 0; k < 3; k++) { alertOn[i][k] = NO; alertAt[i][k] = 0; }
+    for (int k = 0; k < 4; k++) { alertOn[i][k] = NO; alertAt[i][k] = 0; }
   }
   // no need to buzz you while you're looking right at the game
   BOOL looking = ((BOOL(*)(id,SEL))objc_msgSend)(win, S("isVisible")) && ((BOOL(*)(id,SEL))objc_msgSend)(app, S("isActive"));
-  double vals[3] = { s.food, s.happy, s.health }, lim[3] = { 30, 35, 35 };
-  for (int k = 0; k < 3; k++) {
+  double vals[4] = { s.food, s.happy, s.health, s.health }, lim[4] = { 30, 35, 35, 12 };
+  for (int k = 0; k < 4; k++) {
     if (k == 1 && s.sleeping) continue;              // sleeping pets aren't lonely
     if (vals[k] < lim[k]) {
       BOOL due = !alertOn[i][k] || now - alertAt[i][k] > 3 * 3600 * 1000.0;
@@ -243,6 +243,8 @@ static void checkAlerts(int i, const char *name, Stats s, double now) {
                       snprintf(b, sizeof b, "Happiness is at %d%%. Pet %s or play Star Catch together.", v, name); }
         if (k == 2) { snprintf(t, sizeof t, "%s is sick! \xF0\x9F\x92\x8A", name);
                       snprintf(b, sizeof b, "Health is at %d%%. Open Pocket Pal and give %s some medicine.", v, name); }
+        if (k == 3) { snprintf(t, sizeof t, "%s is about to die! \xE2\x9A\xA0\xEF\xB8\x8F", name);
+                      snprintf(b, sizeof b, "Health is down to %d%%. Feed %s and give medicine right now, or %s will become a ghost.", v, name, name); }
         notify(str(t), str(b));
       }
       if (due) alertAt[i][k] = now;
@@ -432,6 +434,11 @@ static void onMessage(id self, SEL _cmd, id ucc, id message) {
   id cmd = dget(body, "cmd"), key = dget(body, "key");
   if (isStr(cmd) && rB1(cmd, "isEqualToString:", str("open"))) { openFolder(body); return; }
   if (isStr(cmd) && rB1(cmd, "isEqualToString:", str("update"))) { installUpdate(body); return; }
+  if (isStr(cmd) && rB1(cmd, "isEqualToString:", str("notify"))) {
+    id t = dget(body, "title"), b = dget(body, "body");
+    if (isStr(t) && isStr(b)) notify(t, b);
+    return;
+  }
   if (!isStr(cmd) || !isStr(key) || rL(key, "length") == 0) return;
   // keys are plain file names made by the game, never paths
   if (rB1(key, "containsString:", str("/")) || rB1(key, "containsString:", str(".."))) return;
